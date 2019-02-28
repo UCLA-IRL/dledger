@@ -43,7 +43,7 @@ private:
 
   // Get approved blocks from record content
   std::vector<std::string>
-  GetApprovedBlocks(shared_ptr<const Data> data);
+  GetApprovedBlocks(const Data& data);
 
   // Generates new record and sends notif interest
   void
@@ -55,7 +55,7 @@ private:
 
   // Fetches record using the given prefix
   void
-  FetchRecord(Name prefix);
+  FetchRecord(Name recordName);
 
   // Update weight of records
   void
