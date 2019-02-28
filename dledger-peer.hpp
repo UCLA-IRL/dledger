@@ -1,5 +1,7 @@
 #include <ndn-cxx/name.hpp>
 #include <ndn-cxx/face.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
+#include <boost/asio/io_service.hpp>
 
 namespace ndn {
 namespace dledger{
@@ -36,26 +38,29 @@ public:
 
 private:
   void
-  OnData(const Data& contectObject);
+  OnData(const Interest& interest, const Data& data);
 
   void
   OnInterest(const Interest& interest);
 
-/*protected:
-  // (overridden from App) Processing upon start of the application
-  virtual void
+  void
+  OnNack(const Interest& interest, const lp::Nack& nack);
+
+  void
+  OnTimeout(const Interest& interest);
+
+protected:
+  void
   StartApplication();
 
-  // (overridden from App) Processing when application is stopped
-  virtual void
+  void
   StopApplication();
 
-  // schedule next record generation
-  virtual void
+  void
   ScheduleNextGeneration();
 
   // schedule next sync
-  virtual void
+  void
   ScheduleNextSync();
 
   void
@@ -71,7 +76,7 @@ private:
   GetGenerationRandomize() const;
 
   std::string
-  GetSyncRandomize() const;*/
+  GetSyncRandomize() const;
 
 public:
   // Get approved blocks from record content
@@ -95,13 +100,16 @@ private:
   UpdateWeightAndEntropy(shared_ptr<const Data> tail, std::set<std::string>& visited, std::string nodeName);
 
 protected:
+  boost::asio::io_service m_ioService;
+  Face m_face;
+  Scheduler m_scheduler;
   bool m_firstTime;
   bool m_syncFirstTime;
   //Ptr<RandomVariableStream> m_random;
   //Ptr<RandomVariableStream> m_syncRandom;
   //std::string m_randomTypeGeneration;
   //std::string m_randomTypeSync;
-  //EventId m_sendEvent; ///< @brief EventId of pending "send packet" event
+  EventId m_sendEvent; ///< @brief EventId of pending "send packet" event
   //EventId m_syncSendEvent;
 
   std::vector<std::string> m_tipList; // Tip list
@@ -112,7 +120,7 @@ protected:
   int m_reqCounter; // request counter that talies record fetching interests sent with data received back
 
   // the var to tune
-  double m_frequency; // Frequency of record generation (in hertz)
+  signed int m_frequency; // Frequency of record generation (a record every m_frequency seconds)
   double m_syncFrequency; // Frequency of sync interest multicast
   int m_weightThreshold; // weight to be considered as archived block
   int m_conEntropy; // max entropy of a block which no new tips can refer
@@ -123,6 +131,8 @@ protected:
 private:
   Name m_routablePrefix; // Node's prefix
   Name m_mcPrefix; // Multicast prefix
+
+  KeyChain m_keyChain;
 
 public:
   std::map<std::string, LedgerRecord> & GetLedger() {
