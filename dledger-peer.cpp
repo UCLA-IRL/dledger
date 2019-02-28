@@ -1,83 +1,60 @@
-// AUTHOR: Zhiyi Zhang
-// EMAIL: zhiyi@cs.ucla.edu
-// License: LGPL v3.0
-
-#include "server-daemon.hpp"
-#include <boost/program_options/options_description.hpp>
-#include <boost/program_options/variables_map.hpp>
-#include <boost/program_options/parsers.hpp>
-#include <iostream>
-
-namespace po = boost::program_options;
-
-static void
-usage(std::ostream& os, const po::options_description& options)
-{
-  os << "Usage: Named Data Neighbor Discovery (NDND) Server\n"
-        "\n"
-     << options;
-}
-
-class Options
-{
-public:
-  Options()
-    : prefix("/ndn/nd")
-  {
-  }
-
-public:
-  ndn::Name prefix;
-};
+#include "dledger-peer.hpp" 
 
 namespace ndn {
-namespace ndnd {
+namespace dledger {
 
-class Program
+LedgerRecord::LedgerRecord(shared_ptr<const Data> contentObject,
+                           int weight, int entropy, bool isArchived)
+  : block(contentObject)
+  , weight(weight)
+  , entropy(entropy)
+  , isArchived(isArchived)
 {
-public:
-  explicit
-  Program(const Options& options)
-    : m_options(options)
-    , server()
-  {
+  //Ptr<UniformRandomVariable> x = CreateObject<UniformRandomVariable>();
+  //int num = static_cast<int>(x->GetValue()*100);
+  //if (num > 95) {
+  //{
+  //  isASample = true;
+  //  creationTime = Simulator::Now();
+  //}
+}
+
+Peer::Peer()
+  : m_firstTime(true)
+  , m_syncFirstTime(true)
+{
+}
+
+std::vector<std::string>
+Peer::GetApprovedBlocks(shared_ptr<const Data> data)
+{
+  std::vector<std::string> approvedBlocks;
+  auto content = ::ndn::encoding::readString(data->getContent());
+  int nSlash = 0;
+  const char *st, *ed;
+  for(st = ed = content.c_str(); *ed && *ed != '*'; ed ++){
+    if(*ed == ':'){
+      if(nSlash >= 2){
+        approvedBlocks.push_back(std::string(st, ed));
+      }
+      nSlash = 0;
+      st = ed + 1;
+    }else if(*ed == '/'){
+      nSlash ++;
+    }
+  }
+  if(nSlash >= 2){
+    approvedBlocks.push_back(std::string(st, ed));
   }
 
-  void
-  run()
-  {
-    server.registerPrefix(m_options.prefix);
-    server.run();
-  }
+  return approvedBlocks;
+}
 
-private:
-  const Options m_options;
-  NDServer server;
-};
-
-} // namespace ndnd
-} // namespace ndn
+}
+}
 
 int
 main(int argc, char** argv)
 {
-  Options opt;
-
-  po::options_description options("Required options");
-  options.add_options()
-    ("help,h", "print help message")
-    ("prefix,P", po::value<ndn::Name>(&opt.prefix), "prefix to register");
-  po::variables_map vm;
-  try {
-    po::store(po::parse_command_line(argc, argv, options), vm);
-    po::notify(vm);
-  }
-  catch (boost::program_options::error&) {
-    usage(std::cerr, options);
-    return 2;
-  }
-
-  ndn::ndnd::Program program(opt);
-  program.run();
   return 1;
 }
