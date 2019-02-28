@@ -21,6 +21,8 @@ Peer::Peer(const Name& mcPrefix, const Name& routablePrefix,
   , m_scheduler(m_ioService)
   , m_mcPrefix(mcPrefix)
   , m_routablePrefix(routablePrefix)
+  , m_genesisNum(genesisNum)
+  , m_approvalNum(approvalNum)
   , m_recordGenFreq(recordGenFreq)
   , m_syncFreq(syncFreq)
   , m_contributeEntropy(contributeEntropy)
@@ -47,12 +49,12 @@ Peer::run()
 
   // schedule events
   m_scheduler.scheduleEvent(time::seconds(m_recordGenFreq),
-                            [this]{GenerateRecord();});
+                            std::bind(&Peer::GenerateRecord, this));
   m_scheduler.scheduleEvent(time::seconds(m_syncFreq),
-                            [this]{GenerateSync();});
+                            std::bind(&Peer::GenerateSync, this));
 
   // run
-  m_ioService.run();
+  m_face.processEvents();
 }
 
 void
@@ -110,7 +112,10 @@ Peer::OnInterest(const Interest& interest)
   if (interestNameUri.find("NOTIF") != std::string::npos) {
     Name recordName(m_mcPrefix);
     recordName.append(interestName.getSubName(2).toUri());
-    FetchRecord(recordName);
+    auto search = m_ledger.find(recordName.toUri());
+    if (search == m_ledger.end()) {
+      FetchRecord(recordName);
+    }
   }
   // else if it is sync interest (/mc-prefix/SYNC/tip1/tip2 ...)
   // note that here tip1 will be /mc-prefix/creator-pref/name)
