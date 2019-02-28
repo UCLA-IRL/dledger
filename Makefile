@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -std=c++14 -Wall `pkg-config --cflags libndn-cxx` -g
 LIBS = `pkg-config --libs libndn-cxx`
 DESTDIR ?= /usr/local
-SOURCE_OBJS = dledger-peer.o
+SOURCE_OBJS = record.o peer.o dledger-peer.o
 PROGRAMS = dledger-peer
 
 all: $(PROGRAMS)
@@ -11,7 +11,7 @@ all: $(PROGRAMS)
 	$(CXX) $(CXXFLAGS) -o $@ -c $< $(LIBS)
 
 dledger-peer: $(SOURCE_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ dledger-peer.o $(LIBS)
+	$(CXX) $(CXXFLAGS) -o $@ $(SOURCE_OBJS) $(LIBS)
 
 clean:
 	rm -f $(PROGRAMS) *.o
