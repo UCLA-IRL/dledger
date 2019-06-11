@@ -46,12 +46,14 @@ Peer::run()
   // prefix registration
   m_face.setInterestFilter(InterestFilter(m_mcPrefix),
                            bind(&Peer::OnInterest, this, _2), nullptr);
+  m_face.setInterestFilter(InterestFilter(m_routablePrefix),
+                           bind(&Peer::OnInterest, this, _2), nullptr);
 
   // schedule events
-  m_scheduler.scheduleEvent(time::seconds(m_recordGenFreq),
-                            std::bind(&Peer::GenerateRecord, this));
-  m_scheduler.scheduleEvent(time::seconds(m_syncFreq),
-                            std::bind(&Peer::GenerateSync, this));
+  // m_scheduler.schedule(time::seconds(m_recordGenFreq),
+  //                     std::bind(&Peer::GenerateRecord, this));
+  m_scheduler.schedule(time::seconds(m_syncFreq),
+                       std::bind(&Peer::GenerateSync, this));
 
   // run
   m_face.processEvents();
@@ -68,12 +70,13 @@ Peer::GenerateSync()
 
   auto syncInterest = std::make_shared<Interest>(syncName);
   syncInterest->setCanBePrefix(false);
+  syncInterest->setInterestLifetime(time::milliseconds(500));
   NDN_LOG_INFO("> SYNC Interest " << syncInterest->getName().toUri());
-  m_face.expressInterest(*syncInterest, bind(&Peer::OnData, this, _1, _2),
+  m_face.expressInterest(*syncInterest,
+                         bind(&Peer::OnData, this, _1, _2),
                          nullptr, nullptr);
 
-  m_scheduler.scheduleEvent(time::seconds(m_syncFreq),
-                            [this]{GenerateSync();});
+  m_scheduler.schedule(time::seconds(m_syncFreq), [this]{GenerateSync();});
 }
 
 std::vector<std::string>
@@ -326,8 +329,8 @@ void
 Peer::GenerateRecord()
 {
   if (m_missingRecords.size() > 0) {
-    m_scheduler.scheduleEvent(time::seconds(m_recordGenFreq),
-                              [this]{GenerateRecord();});
+    m_scheduler.schedule(time::seconds(m_recordGenFreq),
+                         [this]{GenerateRecord();});
     return;
   }
   std::set<std::string> selectedBlocks;
@@ -349,7 +352,7 @@ Peer::GenerateRecord()
       i--;
       tryTimes++;
       if (tryTimes > 10) {
-        m_scheduler.scheduleEvent(time::seconds(m_recordGenFreq),
+        m_scheduler.schedule(time::seconds(m_recordGenFreq),
                                   [this]{GenerateRecord();});
         return;
       }
@@ -402,7 +405,7 @@ Peer::GenerateRecord()
   m_face.expressInterest(notif, bind(&Peer::OnData, this, _1, _2),
                          nullptr, nullptr);
 
-  m_scheduler.scheduleEvent(time::seconds(m_recordGenFreq),
+  m_scheduler.schedule(time::seconds(m_recordGenFreq),
                             [this]{GenerateRecord();});
 }
 

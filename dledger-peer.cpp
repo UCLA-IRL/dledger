@@ -3,6 +3,7 @@
 // License: LGPL v3.0
 
 #include "peer.hpp"
+#include <ndn-cxx/util/random.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -13,8 +14,7 @@ namespace po = boost::program_options;
 static void
 usage(std::ostream& os, const po::options_description& options)
 {
-  os << "Usage: Named Data Neighbor Discovery (NDND) Server\n"
-    "\n"
+  os << "Usage: DLedger Service\n"
      << options;
 }
 
@@ -22,9 +22,10 @@ class Options
 {
 public:
   Options()
-    : mcPrefix("/dledger")
-    , routablePrefix("/dledger/peer")
+    : mcPrefix("/ndn/multicast/dledger")
+    , routablePrefix("/ndn/multicast/dledger/node")
   {
+    routablePrefix.append(std::to_string(ndn::random::generateWord64()));
   }
 
 public:
