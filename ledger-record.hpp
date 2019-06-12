@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <set>
+#include <vector>
 #include <ndn-cxx/data.hpp>
 
 namespace DLedger {
@@ -13,8 +14,12 @@ namespace DLedger {
 class LedgerRecord
 {
 public:
-  LedgerRecord();
+  LedgerRecord() = default;
   LedgerRecord(std::shared_ptr<const ndn::Data> data);
+  LedgerRecord(const RecordState& state);
+
+  static std::vector<std::string>
+  getPrecedingRecords(std::shared_ptr<const ndn::Data> data);
 
 public:
   // key of the ledger
@@ -24,13 +29,25 @@ public:
 };
 
 // The state of each unconfirmed record
-struct RecordState
+class RecordState
 {
+public:
+  RecordState() = default;
+  RecordState(std::shared_ptr<const ndn::Data> data);
+
+public:
+  // record id
   std::string m_id = "";
+  // record producer
   std::string m_producer = "";
-  int endorse = 0;
-  bool isConfirmed = false;
-  std::set<std::string> approvers;
+  // pointer to the record
+  std::shared_ptr<const ndn::Data> m_data;
+  // number of endorsement
+  int m_endorse = 0;
+  // preceding records
+  std::vector<std::string> m_precedingRecords;
+  // peers who endorsed this record
+  std::set<std::string> m_approvers;
 };
 
 } // namespace DLedger
