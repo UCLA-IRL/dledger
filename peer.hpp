@@ -1,16 +1,12 @@
-#include "record.hpp"
-#include <ndn-cxx/name.hpp>
+#include "ledger.hpp"
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
 #include <boost/asio/io_service.hpp>
 
-namespace ndn {
-namespace dledger{
+namespace DLedger {
 
-static int GENESIS_RECORD_NUM = 5;
-static int APPROVAL_NUM = 2;
-static int RECORD_GEN_FREQUENCY = 1;
-static int SYNC_FREQUENCY = 5;
+// static int RECORD_GEN_FREQUENCY = 1;
+// static int SYNC_FREQUENCY = 5;
 static int CONTRIBUTE_ENTROPY = 3;
 static int CONFIRM_ENTROPY = 5;
 
@@ -18,12 +14,7 @@ class Peer
 {
 public:
   Peer(const Name& mcPrefix, const Name& routablePrefix,
-       int genesisNum = GENESIS_RECORD_NUM,
-       int approvalNum = APPROVAL_NUM,
-       double recordGenFreq = RECORD_GEN_FREQUENCY,
-       double syncFreq = SYNC_FREQUENCY,
-       int contributeEntropy = CONTRIBUTE_ENTROPY,
-       int confirmEntropy = CONFIRM_ENTROPY);
+       double recordGenFreq, double syncFreq);
 
   void
   run();
@@ -41,10 +32,6 @@ private:
   // void
   // OnTimeout(const Interest& interest);
 
-  // Get approved blocks from record content
-  std::vector<std::string>
-  GetApprovedBlocks(const Data& data);
-
   // Generates new record and sends notif interest
   void
   GenerateRecord();
@@ -57,20 +44,11 @@ private:
   void
   FetchRecord(Name recordName);
 
-  // Update weight of records
-  void
-  UpdateWeightAndEntropy(shared_ptr<const Data> tail,
-                         std::set<std::string>& visited, std::string nodeName);
-
 public:
   boost::asio::io_service m_ioService;
   Face m_face;
   Scheduler m_scheduler;
   KeyChain m_keyChain;
-
-  // Storage
-  std::map<std::string, LedgerRecord> m_ledger;
-  std::vector<std::string> m_tipList;
 
   // Record Fetching State
   std::list<LedgerRecord> m_recordStack; // records stacked until their ancestors arrive
@@ -91,5 +69,4 @@ public:
   int m_confirmEntropy; // the number of peers to approve
 };
 
-} // namespace dledger
-} // namespace ndn
+} // namespace DLedger

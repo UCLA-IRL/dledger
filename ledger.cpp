@@ -38,6 +38,7 @@ Ledger::generateNewRecord(const std::string& payload)
     }
     else {
       // if the last element was generated my one's own, swap it with the second last element and retry
+      // THIS IS TO FOLLOW DLEDGER'S INTERLOCK POLICY
       if (m_tailingRecordList.size() - 2 >= 0) {
         std::swap(m_tailingRecordList[m_tailingRecordList.size() - 1], m_tailingRecordList[m_tailingRecordList.size() - 2]);
         i--;
@@ -81,7 +82,14 @@ Ledger::onIncomingRecord(std::shared_ptr<const ndn::Data> data)
   auto it = m_unconfirmedRecords.find(state.m_id);
   // check whether the record is already obtained
   if (it != m_unconfirmedRecords.end()) {
-    // if not, append the record into the ledger
+    // if not, check record against INTERLOCK POLICY
+    std::vector<std::string>::iterator it = std::find(state.m_precedingRecords.begin(),
+                                                      state.m_precedingRecords.end(), state.m_producer);
+    if (it != state.m_precedingRecords.end()) {
+      // this record approves its producer's own records, drop it
+      return;
+    }
+    // append the record into the ledger
     m_unconfirmedRecords[state.m_id] = state;
     afterAddingNewRecord("", state);
   }
