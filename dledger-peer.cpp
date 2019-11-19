@@ -10,6 +10,7 @@
 #include <iostream>
 
 namespace po = boost::program_options;
+using namespace ndn;
 
 static void
 usage(std::ostream& os, const po::options_description& options)
@@ -33,8 +34,7 @@ public:
   ndn::Name routablePrefix;
 };
 
-namespace ndn {
-namespace dledger {
+namespace DLedger {
 
 class Program
 {
@@ -55,8 +55,7 @@ private:
   Peer peer;
 };
 
-} // namespace dledger
-} // namespace ndn
+} // namespace DLedger
 
 int
 main(int argc, char** argv)
@@ -78,7 +77,7 @@ main(int argc, char** argv)
     return 2;
   }
 
-  ndn::dledger::Program program(opt);
+  DLedger::Program program(opt);
   program.run();
   return 1;
 }

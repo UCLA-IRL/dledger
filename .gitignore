@@ -1,7 +1,7 @@
 *DS
-nd-server
-nd-client
 .vscode
 ._*
 *.dSYM
 *.o
+backend-test
+dledger-peer

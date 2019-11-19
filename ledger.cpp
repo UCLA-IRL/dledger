@@ -4,14 +4,34 @@
 #include <ndn-cxx/security/signing-helpers.hpp>
 #include <ndn-cxx/util/sha256.hpp>
 
+using namespace ndn;
 namespace DLedger {
 
-Ledger::Ledger(const ndn::Name& routablePrefix,
-               const ndn::security::v2::Certificate& cert, ndn::security::KeyChain& keychain)
+Ledger::Ledger(const Name& routablePrefix, security::KeyChain& keychain,
+               int approvalNum, int contributeWeight, int confirmWeight)
   : m_routablePrefix(routablePrefix)
-  , m_peerCert(cert)
-  , m_keychain(keychain)
+  , m_keyChain(keychain)
+  , m_approvalNum(approvalNum)
+  , m_contributeWeight(contributeWeight)
+  , m_confirmWeight(confirmWeight)
 {
+  auto identity = m_keyChain.createIdentity(routablePrefix);
+  m_peerCert = identity.getDefaultKey().getDefaultCertificate();
+}
+
+void
+Ledger::initGenesisRecord(const Name& mcPrefix, int genesisRecordNum)
+{
+  // adding genesis records
+  for (int i = 0; i < genesisRecordNum; i++) {
+    Name genesisName(mcPrefix);
+    genesisName.append("genesis");
+    genesisName.append("genesis" + std::to_string(i));
+    auto genesis = std::make_shared<Data>(genesisName);
+    const auto& genesisNameStr = genesisName.toUri();
+    m_tailingRecordList.push_back(genesisNameStr);
+    m_backend.putRecord(LedgerRecord(genesis));
+  }
 }
 
 RecordState
@@ -24,12 +44,12 @@ Ledger::generateNewRecord(const std::string& payload)
   std::shuffle(std::begin(m_tailingRecordList), std::end(m_tailingRecordList), engine);
   // fulfill the record content and remove the selected preceding records from tailing record list
   std::string contentStr = "";
-  for (int i = 0; i < PRECEDING_NUM; i++) {
+  for (int i = 0; i < m_approvalNum; i++) {
     const auto& recordId = m_tailingRecordList[m_tailingRecordList.size() - 1];
-    if (m_unconfirmedRecords[recordId].m_producer != ndn::security::v2::extractIdentityFromCertName(m_peerCert.getName())) {
+    if (m_unconfirmedRecords[recordId].m_producer != security::v2::extractIdentityFromCertName(m_peerCert.getName())) {
       contentStr += m_tailingRecordList[m_tailingRecordList.size() - 1];
       m_tailingRecordList.pop_back();
-      if (i < PRECEDING_NUM - 1) {
+      if (i < m_approvalNum - 1) {
         contentStr += ":";
       }
       else {
@@ -53,16 +73,16 @@ Ledger::generateNewRecord(const std::string& payload)
   contentStr += "\n==end==\n";
   // calculate digest
   std::istringstream sha256Is(contentStr);
-  ndn::util::Sha256 sha(sha256Is);
+  util::Sha256 sha(sha256Is);
   std::string contentDigest = sha.toString();
   sha.reset();
   // generate NDN data packet
-  ndn::Name dataName = m_routablePrefix;
+  Name dataName = m_routablePrefix;
   dataName.append("DLedger").append(contentDigest);
-  auto data = std::make_shared<ndn::Data>(dataName);
-  data->setContent(ndn::encoding::makeStringBlock(ndn::tlv::Content, contentStr));
+  auto data = std::make_shared<Data>(dataName);
+  data->setContent(encoding::makeStringBlock(tlv::Content, contentStr));
   // sign the packet with peer's key
-  m_keychain.sign(*data, ndn::security::signingByCertificate(m_peerCert));
+  m_keyChain.sign(*data, security::signingByCertificate(m_peerCert));
   // append newly generated record into the Ledger
   RecordState state(data);
   m_unconfirmedRecords[state.m_id] = state;
@@ -76,7 +96,7 @@ Ledger::detectIntrusion()
 }
 
 void
-Ledger::onIncomingRecord(std::shared_ptr<const ndn::Data> data)
+Ledger::onIncomingRecord(std::shared_ptr<const Data> data)
 {
   RecordState state(data);
   auto it = m_unconfirmedRecords.find(state.m_id);
@@ -97,12 +117,6 @@ Ledger::onIncomingRecord(std::shared_ptr<const ndn::Data> data)
     // otherwise, return
     return;
   }
-}
-
-std::vector<std::string>
-Ledger::getTailingRecordList()
-{
-  return m_tailingRecordList;
 }
 
 void
@@ -127,7 +141,7 @@ Ledger::afterAddingNewRecord(const std::string& recordId, const RecordState& new
     // if not, update the record state
     it->second.m_approvers.insert(newRecordState.m_producer);
     it->second.m_endorse = it->second.m_approvers.size();
-    if (it->second.m_endorse >= CONFIRMATION_NUM) {
+    if (it->second.m_endorse >= m_confirmWeight) {
       // insert the record into the backend database
       m_backend.putRecord(LedgerRecord(it->second));
       // remove it from the unconfirmed record map

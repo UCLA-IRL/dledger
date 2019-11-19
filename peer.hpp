@@ -3,18 +3,25 @@
 #include <ndn-cxx/util/scheduler.hpp>
 #include <boost/asio/io_service.hpp>
 
+using namespace ndn;
 namespace DLedger {
 
-// static int RECORD_GEN_FREQUENCY = 1;
-// static int SYNC_FREQUENCY = 5;
-static int CONTRIBUTE_ENTROPY = 3;
-static int CONFIRM_ENTROPY = 5;
+static int RECORD_GEN_FREQUENCY = 1; // 1 per second
+static int SYNC_FREQUENCY = 0.2; // 1 per 5 second
+static int CONTRIBUTE_WEIGHT = 3;
+static int CONFIRM_WEIGHT = 5;
 
+// @mcPrefix multicast prefix is like /DLedger
+// @routablePrefix routable prefix is like /DLedger/producer1
 class Peer
 {
 public:
   Peer(const Name& mcPrefix, const Name& routablePrefix,
-       double recordGenFreq, double syncFreq);
+           int genesisNum, int approvalNum,
+           double recordGenFreq = RECORD_GEN_FREQUENCY,
+           double syncFreq = SYNC_FREQUENCY,
+           int contributeWeight = CONTRIBUTE_WEIGHT,
+           int confirmWeight = CONFIRM_WEIGHT);
 
   void
   run();
@@ -50,23 +57,19 @@ public:
   Scheduler m_scheduler;
   KeyChain m_keyChain;
 
+  Ledger m_ledger;
+
   // Record Fetching State
-  std::list<LedgerRecord> m_recordStack; // records stacked until their ancestors arrive
-  std::set<std::string> m_missingRecords;
-  int m_reqCounter; // request counter that talies record fetching interests sent with data received back
+  // std::list<LedgerRecord> m_recordStack; // records stacked until their ancestors arrive
+  // std::set<std::string> m_missingRecords;
+  // int m_reqCounter; // request counter that talies record fetching interests sent with data received back
 
   // Configuration
   Name m_mcPrefix; // Multicast prefix
   Name m_routablePrefix; // Node's prefix
 
-  int m_genesisNum; // the number of genesis blocks
-  int m_approvalNum; // the number of referred blocks
-
   int m_recordGenFreq; // Frequency of record gen: time period (s) between two adjacent records
   int m_syncFreq; // Frequency of sync: time period (s) between two adjacent sync
-
-  int m_contributeEntropy; // contribution entropy of a block which no new tips can refer
-  int m_confirmEntropy; // the number of peers to approve
 };
 
 } // namespace DLedger

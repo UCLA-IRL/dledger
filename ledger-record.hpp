@@ -8,27 +8,8 @@
 
 namespace DLedger {
 
-// Ledger record class
-// The main program needs to keep <id, RecordState> in mem
-// This class is a reflection of what is kept in the database
-class LedgerRecord
-{
-public:
-  LedgerRecord() = default;
-  LedgerRecord(std::shared_ptr<const ndn::Data> data);
-  LedgerRecord(const RecordState& state);
-
-  static std::vector<std::string>
-  getPrecedingRecords(std::shared_ptr<const ndn::Data> data);
-
-public:
-  // key of the ledger
-  std::string m_id;
-  // record bytes
-  ndn::Block m_data;
-};
-
 // The state of each unconfirmed record
+// The ledger needs to keep <id, RecordState> in mem
 class RecordState
 {
 public:
@@ -48,6 +29,25 @@ public:
   std::vector<std::string> m_precedingRecords;
   // peers who endorsed this record
   std::set<std::string> m_approvers;
+};
+
+// Ledger record class
+// This class is a reflection of what is kept in the database
+class LedgerRecord
+{
+public:
+  LedgerRecord() = default;
+  LedgerRecord(std::shared_ptr<const ndn::Data> data);
+  LedgerRecord(const RecordState& state);
+
+  static std::vector<std::string>
+  getPrecedingRecords(std::shared_ptr<const ndn::Data> data);
+
+public:
+  // key of the ledger
+  std::string m_id;
+  // record bytes
+  ndn::Block m_data;
 };
 
 } // namespace DLedger

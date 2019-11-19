@@ -18,7 +18,7 @@ backend-test: $(DB_SOUCE_OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(DB_SOUCE_OBJS) $(LIBS)
 
 clean:
-	rm -f $(PROGRAMS) *.o
+	rm -f $(PROGRAMS) backend-test *.o
 
 install: all
 	cp $(PROGRAMS) $(DESTDIR)/bin/

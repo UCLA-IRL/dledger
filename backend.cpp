@@ -44,6 +44,7 @@ Backend::putRecord(const LedgerRecord& record)
     std::cerr << s.ToString() << std::endl;
     return false;
   }
+  return true;
 }
 
 void
