@@ -42,12 +42,13 @@ Ledger::generateNewRecord(const std::string& payload)
   std::random_device rd;
   std::default_random_engine engine{rd()};
   std::shuffle(std::begin(m_tailingRecordList), std::end(m_tailingRecordList), engine);
+
   // fulfill the record content and remove the selected preceding records from tailing record list
   std::string contentStr = "";
   for (int i = 0; i < m_approvalNum; i++) {
     const auto& recordId = m_tailingRecordList[m_tailingRecordList.size() - 1];
-    if (m_unconfirmedRecords[recordId].m_producer != security::v2::extractIdentityFromCertName(m_peerCert.getName())) {
-      contentStr += m_tailingRecordList[m_tailingRecordList.size() - 1];
+    if (m_unconfirmedRecords[recordId].m_producer != m_routablePrefix) {
+      contentStr += recordId;
       m_tailingRecordList.pop_back();
       if (i < m_approvalNum - 1) {
         contentStr += ":";
@@ -101,7 +102,7 @@ Ledger::onIncomingRecord(std::shared_ptr<const Data> data)
   RecordState state(data);
   auto it = m_unconfirmedRecords.find(state.m_id);
   // check whether the record is already obtained
-  if (it != m_unconfirmedRecords.end()) {
+  if (it == m_unconfirmedRecords.end()) {
     // if not, check record against INTERLOCK POLICY
     std::vector<std::string>::iterator it = std::find(state.m_precedingRecords.begin(),
                                                       state.m_precedingRecords.end(), state.m_producer);
@@ -112,10 +113,6 @@ Ledger::onIncomingRecord(std::shared_ptr<const Data> data)
     // append the record into the ledger
     m_unconfirmedRecords[state.m_id] = state;
     afterAddingNewRecord("", state);
-  }
-  else {
-    // otherwise, return
-    return;
   }
 }
 

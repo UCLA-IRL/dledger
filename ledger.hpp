@@ -36,6 +36,10 @@ public:
   void
   afterAddingNewRecord(const std::string& recordId, const RecordState& newRecordState);
 
+  // TODO: add two functions to check whether a record has been received: 
+  // 1. whether is in unconfirmed record list
+  // 2. whether is in confirmed record list
+
 public:
   // tailing records
   std::vector<std::string> m_tailingRecordList;
