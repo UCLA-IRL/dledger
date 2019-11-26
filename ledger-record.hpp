@@ -8,13 +8,14 @@
 
 namespace DLedger {
 
-// The state of each unconfirmed record
-// The ledger needs to keep <id, RecordState> in mem
+// Unconfirmed record
+// The ledger needs to keep <id, RecordState> in memory
+// If a record get confirmed, the record should be kept in the database
 class RecordState
 {
 public:
   RecordState() = default;
-  RecordState(std::shared_ptr<const ndn::Data> data);
+  RecordState(ndn::Data data);
 
 public:
   // record id
@@ -22,7 +23,7 @@ public:
   // record producer
   std::string m_producer = "";
   // pointer to the record
-  std::shared_ptr<const ndn::Data> m_data;
+  std::shared_ptr<ndn::Data> m_data;
   // number of endorsement
   int m_endorse = 0;
   // preceding records
@@ -31,24 +32,25 @@ public:
   std::set<std::string> m_approvers;
 };
 
-// Ledger record class
-// This class is a reflection of what is kept in the database
+// Confirmed Record
+// The ledger keeps confirmed record into the database
+// This class is used when a record is fetched from the database
 class LedgerRecord
 {
 public:
   LedgerRecord() = default;
-  LedgerRecord(std::shared_ptr<const ndn::Data> data);
+  LedgerRecord(ndn::Data data);
   LedgerRecord(const RecordState& state);
-
-  static std::vector<std::string>
-  getPrecedingRecords(std::shared_ptr<const ndn::Data> data);
 
 public:
   // key of the ledger
   std::string m_id;
   // record bytes
-  ndn::Block m_data;
+  std::shared_ptr<ndn::Data> m_data;
 };
+
+static std::vector<std::string>
+getPrecedingRecords(std::shared_ptr<const ndn::Data> data);
 
 } // namespace DLedger
 

@@ -3,26 +3,38 @@
 
 namespace DLedger {
 
-LedgerRecord::LedgerRecord(std::shared_ptr<const ndn::Data> data)
+RecordState::RecordState(ndn::Data data)
 {
-  m_id = data->getName().toUri();
-  m_data = data->wireEncode();
+  m_data = std::make_shared<ndn::Data>(std::move(data));
+  m_id = m_data->getName().toUri();
+  const auto& keyName = m_data->getSignature().getKeyLocator().getName();
+  m_producer = keyName.getPrefix(-2).toUri();
+  m_approvers.clear();
+  m_precedingRecords.clear();
+  m_precedingRecords = getPrecedingRecords(m_data);
+}
+
+LedgerRecord::LedgerRecord(ndn::Data data)
+{
+  m_data = std::make_shared<ndn::Data>(std::move(data));
+  m_id = m_data->getName().toUri();
 }
 
 LedgerRecord::LedgerRecord(const RecordState& state)
 {
   m_id = state.m_id;
-  m_data = state.m_data->wireEncode();
+  m_data = state.m_data;
 }
 
 std::vector<std::string>
-LedgerRecord::getPrecedingRecords(std::shared_ptr<const ndn::Data> data)
+getPrecedingRecords(std::shared_ptr<const ndn::Data> data)
 {
   // record content:
   // [precedingRecord]:[precedingRecord]:...\n
   // ==start==\n
   // [content]\n
   // ==end==\n
+  // producer-cert-record-id
   auto contentStr = ndn::encoding::readString(data->getContent());
   std::istringstream iss(contentStr);
   std::string line;
@@ -38,17 +50,6 @@ LedgerRecord::getPrecedingRecords(std::shared_ptr<const ndn::Data> data)
   }
   precedingRecords.push_back(line.substr(last));
   return precedingRecords;
-}
-
-RecordState::RecordState(std::shared_ptr<const ndn::Data> data)
-{
-  m_id = data->getName().toUri();
-  m_data = data;
-  const auto& keyName = data->getSignature().getKeyLocator().getName();
-  m_producer = keyName.getPrefix(-2).toUri();
-  m_approvers.clear();
-  m_precedingRecords.clear();
-  m_precedingRecords = LedgerRecord::getPrecedingRecords(data);
 }
 
 } // namespace DLedger

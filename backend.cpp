@@ -28,7 +28,7 @@ Backend::getRecord(const std::string& recordId)
   }
   else {
     ndn::Block block((const uint8_t*)value.c_str(), value.size());
-    auto data = std::make_shared<ndn::Data>(block);
+    ndn::Data data(block);
     return LedgerRecord(data);
   }
 }
@@ -37,7 +37,8 @@ bool
 Backend::putRecord(const LedgerRecord& record)
 {
   leveldb::Slice key = record.m_id;
-  leveldb::Slice value((const char*)record.m_data.wire(), record.m_data.size());
+  auto recordBytes = record.m_data->wireEncode();
+  leveldb::Slice value((const char*)recordBytes.wire(), recordBytes.size());
   leveldb::Status s = m_db->Put(leveldb::WriteOptions(), key, value);
   if (false == s.ok()) {
     std::cerr << "Unable to get value from database, key: " << record.m_id << std::endl;
