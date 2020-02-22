@@ -49,7 +49,7 @@ public:
   std::shared_ptr<ndn::Data> m_data;
 };
 
-static std::vector<std::string>
+std::vector<std::string>
 getPrecedingRecords(std::shared_ptr<const ndn::Data> data);
 
 } // namespace DLedger

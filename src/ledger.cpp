@@ -42,7 +42,7 @@ Ledger::Ledger(const Name& multicastPrefix,
     // if not, apply for a certificate from identity manager
     Interest request("/identity-manager/request");
     request.setApplicationParameters(m_peerCert.wireEncode());
-    m_face.expressInterest(request, std::bind(Ledger::onRequestData, this, _1, _2), nullptr, nullptr);
+    m_face.expressInterest(request, std::bind(&Ledger::onRequestData, this, _1, _2), nullptr, nullptr);
   }
   else {
     m_certRecord = myCertRecordId;
@@ -121,6 +121,24 @@ Ledger::detectIntrusion()
 {
   // leave this empty for now
   // @TODO need to discuss with Randy King
+}
+
+bool
+Ledger::hasReceivedAsUnconfirmedRecord(const Data& data) const
+{
+  return true;
+}
+
+bool
+Ledger::hasReceivedAsConfirmedRecord(const Data& data) const
+{
+  return true;
+}
+
+bool
+Ledger::isValidRecord(const Data& data) const
+{
+  return true;
 }
 
 void

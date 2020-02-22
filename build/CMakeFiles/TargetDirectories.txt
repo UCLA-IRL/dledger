@@ -1,0 +1,4 @@
+/Users/ZhangZhiyi/Develop/dledger-app/build/CMakeFiles/rebuild_cache.dir
+/Users/ZhangZhiyi/Develop/dledger-app/build/CMakeFiles/edit_cache.dir
+/Users/ZhangZhiyi/Develop/dledger-app/build/CMakeFiles/dledger.dir
+/Users/ZhangZhiyi/Develop/dledger-app/build/CMakeFiles/backend-test.dir
