@@ -1,7 +1,8 @@
-#include "ledger-record.hpp"
 #include <leveldb/db.h>
+#include <ndn-cxx/data.hpp>
 
-namespace DLedger {
+using namespace ndn;
+namespace dledger {
 
 class Backend
 {
@@ -9,14 +10,14 @@ public:
   Backend();
   ~Backend();
 
-  LedgerRecord
-  getRecord(const std::string& recordId);
+  shared_ptr<Data>
+  getRecord(const Name& recordName);
 
   bool
-  putRecord(const LedgerRecord& record);
+  putRecord(const shared_ptr<Data>& recordData);
 
   void
-  deleteRecord(const std::string& recordId);
+  deleteRecord(const Name& recordName);
 
 private:
   void

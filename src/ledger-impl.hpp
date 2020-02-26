@@ -22,14 +22,16 @@ public:
              security::KeyChain& keychain,
              Face& network);
 
+  ~LedgerImpl() override;
+
   ReturnCode
   addRecord(const std::string& recordName, const std::string& payload) override;
 
   ReturnCode
-  getRecord(const Name& recordName, Record& record) override;
+  getRecord(const std::string& recordName, Record& record) override;
 
   bool
-  checkRecord(const Name& recordName) override;
+  checkRecord(const std::string& recordName) override;
 
   void
   setOnRecordAppLogic(const OnNewRecord& onNewRecord) override;
@@ -56,6 +58,7 @@ private:
   Face& m_network;
 
   std::vector<std::string> m_tailingRecords;
+  Backend m_backend;
 };
 
 // class Ledger

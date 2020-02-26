@@ -11,13 +11,23 @@ namespace dledger {
 class Record
 {
 public:
+  Record(const std::shared_ptr<Data>& data);
   Record(Data data);
 
-private:
-  std::shared_ptr<Data> m_data;
+  std::string
+  getPayload() const;
+
+  std::string
+  getRecordName() const;
+
+public:
+  std::shared_ptr<const Data> m_data;
   std::vector<std::string> m_precedingRecords;
   std::set<std::string> m_approvers;
 };
+
+std::vector<std::string>
+getPrecedingRecords(const Record& record);
 
 } // namespace dledger
 

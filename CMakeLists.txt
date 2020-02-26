@@ -17,18 +17,14 @@ find_package(leveldb REQUIRED)
 set(DLEDGER_LIB_SOURCE_FILES
     ./src/backend.hpp
     ./src/backend.cpp
-    ./src/ledger-record.hpp
-    ./src/ledger-record.cpp
-    ./src/ledger.hpp
-    ./src/ledger.cpp
+    ./src/ledger-impl.hpp
+    ./src/ledger-impl.cpp
     )
 
 set(BACKEND_TEST_SOURCE_FILES
     ./test/backend-test.cpp
     ./src/backend.hpp
     ./src/backend.cpp
-    ./src/ledger-record.hpp
-    ./src/ledger-record.cpp
     )
 
 # include

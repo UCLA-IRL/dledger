@@ -1,9 +1,8 @@
 #include "backend.hpp"
-#include <ndn-cxx/data.hpp>
 #include <iostream>
 #include <cassert>
 
-namespace DLedger {
+namespace dledger {
 
 Backend::Backend()
 {
@@ -15,33 +14,34 @@ Backend::~Backend()
   delete m_db;
 }
 
-LedgerRecord
-Backend::getRecord(const std::string& recordId)
+shared_ptr<Data>
+Backend::getRecord(const Name& recordName)
 {
-  leveldb::Slice key = recordId;
+  const auto& nameStr = recordName.toUri();
+  leveldb::Slice key = nameStr;
   std::string value;
   leveldb::Status s = m_db->Get(leveldb::ReadOptions(), key, &value);
   if (false == s.ok()) {
-    std::cerr << "Unable to get value from database, key: " << recordId << std::endl;
+    std::cerr << "Unable to get value from database, key: " << nameStr << std::endl;
     std::cerr << s.ToString() << std::endl;
-    return LedgerRecord();
+    return nullptr;
   }
   else {
     ndn::Block block((const uint8_t*)value.c_str(), value.size());
-    ndn::Data data(block);
-    return LedgerRecord(data);
+    return make_shared<Data>(block);
   }
 }
 
 bool
-Backend::putRecord(const LedgerRecord& record)
+Backend::putRecord(const shared_ptr<Data>& recordData)
 {
-  leveldb::Slice key = record.m_id;
-  auto recordBytes = record.m_data->wireEncode();
+  const auto& nameStr = recordData->getName().toUri();
+  leveldb::Slice key = nameStr;
+  auto recordBytes = recordData->wireEncode();
   leveldb::Slice value((const char*)recordBytes.wire(), recordBytes.size());
   leveldb::Status s = m_db->Put(leveldb::WriteOptions(), key, value);
   if (false == s.ok()) {
-    std::cerr << "Unable to get value from database, key: " << record.m_id << std::endl;
+    std::cerr << "Unable to get value from database, key: " << nameStr << std::endl;
     std::cerr << s.ToString() << std::endl;
     return false;
   }
@@ -49,12 +49,13 @@ Backend::putRecord(const LedgerRecord& record)
 }
 
 void
-Backend::deleteRecord(const std::string& recordId)
+Backend::deleteRecord(const Name& recordName)
 {
-  leveldb::Slice key = recordId;
+  const auto& nameStr = recordName.toUri();
+  leveldb::Slice key = nameStr;
   leveldb::Status s = m_db->Delete(leveldb::WriteOptions(), key);
   if (false == s.ok()) {
-    std::cerr << "Unable to delete value from database, key: " << recordId << std::endl;
+    std::cerr << "Unable to delete value from database, key: " << nameStr << std::endl;
     std::cerr << s.ToString() << std::endl;
   }
 }
@@ -71,4 +72,4 @@ Backend::initDatabase(const std::string& dbDir)
   }
 }
 
-}
+} // namespace dledger

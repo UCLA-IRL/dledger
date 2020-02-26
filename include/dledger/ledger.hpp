@@ -14,18 +14,19 @@ typedef function<bool(const Data&)> OnNewRecord;
 class Ledger {
 public:
   Ledger() = default;
+  virtual ~Ledger() = default;
 
   virtual ReturnCode
-  addRecord(const std::string& recordName, const std::string& payload);
+  addRecord(const std::string& recordName, const std::string& payload) = 0;
 
   virtual ReturnCode
-  getRecord(const Name& recordName, Record& record);
+  getRecord(const std::string& recordName, Record& record) = 0;
 
   virtual bool
-  checkRecord(const Name& recordName);
+  checkRecord(const std::string& recordName) = 0;
 
   virtual void
-  setOnRecordAppLogic(const OnNewRecord& onNewRecord);
+  setOnRecordAppLogic(const OnNewRecord& onNewRecord) = 0;
 };
 
 } // namespace dledger

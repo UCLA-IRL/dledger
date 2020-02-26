@@ -22,6 +22,9 @@ LedgerImpl::LedgerImpl(const Config& config,
   , m_network(network)
 {}
 
+LedgerImpl::~LedgerImpl()
+{}
+
 ReturnCode
 LedgerImpl::addRecord(const std::string& recordName, const std::string& payload)
 {
@@ -61,29 +64,41 @@ LedgerImpl::addRecord(const std::string& recordName, const std::string& payload)
   Data data(dataName);
   data.setContent(encoding::makeStringBlock(tlv::Content, contentStr));
   // sign the packet with peer's key
-  m_keyChain.sign(data, security::signingByIdentity(m_producerPrefix));
+  m_keychain.sign(data, security::signingByIdentity(m_producerPrefix));
 }
 
   ReturnCode
-LedgerImpl::getRecord();
+LedgerImpl::getRecord(const std::string& recordName, Record& record)
+{
+  return ReturnCode::noError();
+}
 
   bool
-LedgerImpl::checkRecord();
+LedgerImpl::checkRecord(const std::string& recordName)
+{
+  return true;
+}
 
   void
-LedgerImpl::setOnRecordAppLogic(const OnNewRecord& onNewRecord);
+LedgerImpl::setOnRecordAppLogic(const OnNewRecord& onNewRecord)
+{
+}
 
   void
-LedgerImpl::onNewRecordNotification(const Interest& interest);
+LedgerImpl::onNewRecordNotification(const Interest& interest)
+{}
 
   void
-LedgerImpl::onRequestedData(const Interest& interest, const Data& data);
+LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
+{}
 
   void
-LedgerImpl::onLedgerSyncRequest(const Interest& interest);
+LedgerImpl::onLedgerSyncRequest(const Interest& interest)
+{}
 
   void
-LedgerImpl::onRecordRequest(const Interest& interest);
+LedgerImpl::onRecordRequest(const Interest& interest)
+{}
 
 
 //===============================================================================

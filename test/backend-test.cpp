@@ -3,6 +3,8 @@
 #include <iostream>
 #include <ndn-cxx/security/signature-sha256-with-rsa.hpp>
 
+using namespace dledger;
+
 std::shared_ptr<ndn::Data>
 makeData(const std::string& name, const std::string& content)
 {
@@ -20,13 +22,12 @@ makeData(const std::string& name, const std::string& content)
 bool
 testBackEnd()
 {
-  DLedger::Backend backend;
+  Backend backend;
   auto data = makeData("/dledger/12345", "content is 12345");
-  DLedger::LedgerRecord record(*data);
 
-  backend.putRecord(record);
-  auto anotherRecord = backend.getRecord("/dledger/12345");
-  if (record.m_id != anotherRecord.m_id) {
+  backend.putRecord(data);
+  auto anotherRecord = backend.getRecord(Name("/dledger/12345"));
+  if (data->wireEncode() != anotherRecord->wireEncode()) {
     return false;
   }
   return true;
