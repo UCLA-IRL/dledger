@@ -1,3 +1,6 @@
+#ifndef DLEDGER_SRC_BACKEND_H_
+#define DLEDGER_SRC_BACKEND_H_
+
 #include <leveldb/db.h>
 #include <ndn-cxx/data.hpp>
 
@@ -28,3 +31,5 @@ private:
 };
 
 } // namespace DLedger
+
+#endif // DLEDGER_SRC_BACKEND_H_
