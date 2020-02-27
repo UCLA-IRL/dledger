@@ -8,6 +8,49 @@
 using namespace ndn;
 namespace dledger {
 
+// T_Content L
+//   T_RecordHeader(129) L
+//     T_Name L PrecedingRecordName1_TLV
+//     T_Name L PrecedingRecordName2_TLV
+//     ...
+//   T_RecordContent(130) L
+//     T_ContentItem(131) L String_1
+//     T_ContentItem(131) L String_2
+//     ...
+
+class RecordHeader
+{
+public:
+  void wireEncode(Block& block) {
+    auto header = makeEmptyBlock(T_RecordHeader);
+    for (const auto& pointer : ledgerPointer) {
+      header.push_back(pointer.wireEncode());
+    }
+    header.parse();
+    block.push_back(header);
+    block.parse();
+  };
+  const static uint8_t T_RecordHeader = 129;
+  std::list<Name> ledgerPointer;
+};
+
+class RecordContent
+{
+public:
+  void wireEncode(Block& block) {
+    auto body = makeEmptyBlock(T_RecordContent);
+    for (const auto& item : ledgerContent) {
+      body.push_back(makeStringBlock(T_ContentItem, item));
+    }
+    body.parse();
+    block.push_back(body);
+    block.parse();
+  };
+  const static uint8_t T_RecordContent = 130;
+  const static uint8_t T_ContentItem = 131;
+  std::list<std::string> ledgerContent;
+};
+
 LedgerImpl::LedgerImpl(const Config& config,
          const Name& multicastPrefix,
          const Name& producerPrefix,
@@ -28,6 +71,9 @@ LedgerImpl::~LedgerImpl()
 ReturnCode
 LedgerImpl::addRecord(const std::string& recordName, const std::string& payload)
 {
+  // TODO: update the content format:
+  // A LIST OF TLVs for ledger pointer
+  // A LIST OF TLVs for MESSAGES
   if (m_tailingRecords.size() <= 0) {
     return ReturnCode::noTailingRecord();
   }
@@ -67,39 +113,38 @@ LedgerImpl::addRecord(const std::string& recordName, const std::string& payload)
   m_keychain.sign(data, security::signingByIdentity(m_producerPrefix));
 }
 
-  ReturnCode
+ReturnCode
 LedgerImpl::getRecord(const std::string& recordName, Record& record)
 {
   return ReturnCode::noError();
 }
 
-  bool
+bool
 LedgerImpl::checkRecord(const std::string& recordName)
 {
   return true;
 }
 
-  void
+void
 LedgerImpl::setOnRecordAppLogic(const OnNewRecord& onNewRecord)
 {
 }
 
-  void
+void
 LedgerImpl::onNewRecordNotification(const Interest& interest)
 {}
 
-  void
+void
 LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
 {}
 
-  void
+void
 LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 {}
 
-  void
+void
 LedgerImpl::onRecordRequest(const Interest& interest)
 {}
-
 
 //===============================================================================
 
