@@ -17,7 +17,7 @@ public:
   virtual ~Ledger() = default;
 
   virtual ReturnCode
-  addRecord(const std::string& recordName, const std::string& payload) = 0;
+  addRecord(const std::string& recordIdentifier, Record& record, const Name& signerIdentity) = 0;
 
   virtual ReturnCode
   getRecord(const std::string& recordName, Record& record) = 0;

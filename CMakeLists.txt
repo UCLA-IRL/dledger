@@ -19,12 +19,7 @@ set(DLEDGER_LIB_SOURCE_FILES
     ./src/backend.cpp
     ./src/ledger-impl.hpp
     ./src/ledger-impl.cpp
-    )
-
-set(BACKEND_TEST_SOURCE_FILES
-    ./test/backend-test.cpp
-    ./src/backend.hpp
-    ./src/backend.cpp
+    ./src/record.cpp
     )
 
 # include
@@ -35,9 +30,13 @@ include_directories(${NDN_CXX_INCLUDE_DIRS})
 link_directories(${NDN_CXX_LIBRARY_DIRS})
 
 # target
-add_executable(backend-test ${BACKEND_TEST_SOURCE_FILES})
+add_executable(backend-test ./test/backend-test.cpp ${DLEDGER_LIB_SOURCE_FILES})
 target_compile_options(backend-test PUBLIC ${NDN_CXX_CFLAGS})
 target_link_libraries(backend-test PUBLIC ${NDN_CXX_LIBRARIES} leveldb)
+
+add_executable(record-test ./test/record-test.cpp ${DLEDGER_LIB_SOURCE_FILES})
+target_compile_options(record-test PUBLIC ${NDN_CXX_CFLAGS})
+target_link_libraries(record-test PUBLIC ${NDN_CXX_LIBRARIES} leveldb)
 
 add_library(dledger SHARED ${DLEDGER_LIB_SOURCE_FILES})
 target_compile_options(dledger PUBLIC ${NDN_CXX_CFLAGS})

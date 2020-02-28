@@ -3,6 +3,74 @@
 
 namespace dledger {
 
+RecordHeader::RecordHeader(std::list<Name> recordPointers)
+  : m_recordPointers(recordPointers)
+{}
+
+void
+RecordHeader::wireEncode(Block& block) const
+{
+  auto header = makeEmptyBlock(T_RecordHeader);
+  for (const auto& pointer : m_recordPointers) {
+    header.push_back(pointer.wireEncode());
+  }
+  header.parse();
+  block.push_back(header);
+  block.parse();
+};
+
+const std::list<Name>&
+RecordHeader::wireDecode(const Block& dataContent)
+{
+  if (m_recordPointers.size() > 0) {
+    return m_recordPointers;
+  }
+  dataContent.parse();
+  const auto& headerBlock = dataContent.get(T_RecordHeader);
+  headerBlock.parse();
+  Name pointer;
+  for (const auto& item : headerBlock.elements()) {
+    pointer.wireDecode(item);
+    m_recordPointers.push_back(pointer);
+  }
+  return m_recordPointers;
+}
+
+RecordContent::RecordContent(std::list<std::string> contentItems)
+  : m_contentItems(contentItems)
+{}
+
+void
+RecordContent::wireEncode(Block& block) const
+{
+  auto body = makeEmptyBlock(T_RecordContent);
+  for (const auto& item : m_contentItems) {
+    body.push_back(makeStringBlock(T_ContentItem, item));
+  }
+  body.parse();
+  block.push_back(body);
+  block.parse();
+};
+
+const std::list<std::string>&
+RecordContent::wireDecode(const Block& dataContent)
+{
+  if (m_contentItems.size() > 0) {
+    return m_contentItems;
+  }
+  dataContent.parse();
+  const auto& contentBlock = dataContent.get(T_RecordContent);
+  contentBlock.parse();
+  for (const auto& item : contentBlock.elements()) {
+    m_contentItems.push_back(readString(item));
+  }
+  return m_contentItems;
+}
+
+Record::Record()
+  : m_data(nullptr)
+{}
+
 Record::Record(const std::shared_ptr<Data>& data)
   : m_data(data)
 {}
@@ -12,41 +80,25 @@ Record::Record(ndn::Data data)
 {}
 
 std::string
-Record::getPayload() const
-{
-  return "";
-}
-
-std::string
 Record::getRecordName() const
 {
+  if (m_data != nullptr)
+    return m_data->getFullName().toUri();
   return "";
 }
 
-std::vector<std::string>
-getPrecedingRecords(const Record& record)
+const std::list<Name>&
+Record::getPointersFromHeader() const
 {
-  // record content:
-  // [precedingRecord]:[precedingRecord]:...\n
-  // ==start==\n
-  // [content]\n
-  // ==end==\n
-  // producer-cert-record-id
-  auto contentStr = ndn::encoding::readString(record.m_data->getContent());
-  std::istringstream iss(contentStr);
-  std::string line;
-  std::getline(iss, line);
+  RecordHeader header;
+  return header.wireDecode(m_data->getContent());
+}
 
-  std::vector<std::string> precedingRecords;
-  std::string delimiter = ":";
-  size_t last = 0;
-  size_t next = 0;
-  while ((next = line.find(delimiter, last)) != std::string::npos) {
-    precedingRecords.push_back(line.substr(last, next-last));
-    last = next + 1;
-  }
-  precedingRecords.push_back(line.substr(last));
-  return precedingRecords;
+const std::list<std::string>&
+Record::getRecordItems() const
+{
+  RecordContent content;
+  return content.wireDecode(m_data->getContent());
 }
 
 } // namespace DLedger

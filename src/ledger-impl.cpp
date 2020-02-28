@@ -8,49 +8,6 @@
 using namespace ndn;
 namespace dledger {
 
-// T_Content L
-//   T_RecordHeader(129) L
-//     T_Name L PrecedingRecordName1_TLV
-//     T_Name L PrecedingRecordName2_TLV
-//     ...
-//   T_RecordContent(130) L
-//     T_ContentItem(131) L String_1
-//     T_ContentItem(131) L String_2
-//     ...
-
-class RecordHeader
-{
-public:
-  void wireEncode(Block& block) {
-    auto header = makeEmptyBlock(T_RecordHeader);
-    for (const auto& pointer : ledgerPointer) {
-      header.push_back(pointer.wireEncode());
-    }
-    header.parse();
-    block.push_back(header);
-    block.parse();
-  };
-  const static uint8_t T_RecordHeader = 129;
-  std::list<Name> ledgerPointer;
-};
-
-class RecordContent
-{
-public:
-  void wireEncode(Block& block) {
-    auto body = makeEmptyBlock(T_RecordContent);
-    for (const auto& item : ledgerContent) {
-      body.push_back(makeStringBlock(T_ContentItem, item));
-    }
-    body.parse();
-    block.push_back(body);
-    block.parse();
-  };
-  const static uint8_t T_RecordContent = 130;
-  const static uint8_t T_ContentItem = 131;
-  std::list<std::string> ledgerContent;
-};
-
 LedgerImpl::LedgerImpl(const Config& config,
          const Name& multicastPrefix,
          const Name& producerPrefix,
@@ -69,11 +26,8 @@ LedgerImpl::~LedgerImpl()
 {}
 
 ReturnCode
-LedgerImpl::addRecord(const std::string& recordName, const std::string& payload)
+LedgerImpl::addRecord(const std::string& recordIdentifier, Record& record, const Name& signerIdentity)
 {
-  // TODO: update the content format:
-  // A LIST OF TLVs for ledger pointer
-  // A LIST OF TLVs for MESSAGES
   if (m_tailingRecords.size() <= 0) {
     return ReturnCode::noTailingRecord();
   }
@@ -85,32 +39,44 @@ LedgerImpl::addRecord(const std::string& recordName, const std::string& payload)
   // fulfill the record content with preceding record IDs
   // and remove the selected preceding records from tailing record list
   std::string contentStr = "";
-  for (int i = 0; i < m_config.preceidingRecordNum; i++) {
-    const auto& recordId = m_tailingRecords[i];
-    contentStr += recordId;
-    m_tailingRecords.pop_back();
-    if (i < m_config.preceidingRecordNum - 1) {
-      contentStr += ":";
+  int counter = 0, iterator = 0;
+  for (; counter < m_config.preceidingRecordNum && iterator < m_tailingRecords.size(); counter++) {
+    const auto& recordId = m_tailingRecords[iterator];
+    if (m_producerPrefix.isPrefixOf(recordId)) {
+      counter--;
+      iterator++;
+      continue;
     }
-    else {
-      contentStr += "\n";
-    }
+    record.addPointer(recordId);
+    m_tailingRecords.erase(m_tailingRecords.begin() + iterator);
   }
-  contentStr += "==start==\n";
-  contentStr += payload;
-  contentStr += "\n==end==\n";
-  // // calculate digest
-  // std::istringstream sha256Is(contentStr);
-  // util::Sha256 sha(sha256Is);
-  // std::string contentDigest = sha.toString();
-  // sha.reset();
+  if (counter < m_config.preceidingRecordNum) {
+    return ReturnCode::notEnoughTailingRecord();
+  }
 
   Name dataName = m_producerPrefix;
-  dataName.append(recordName);
-  Data data(dataName);
-  data.setContent(encoding::makeStringBlock(tlv::Content, contentStr));
+  dataName.append(recordIdentifier);
+  auto data = make_shared<Data>(dataName);
+  auto contentBlock = makeEmptyBlock(tlv::Content);
+  record.wireEncode(contentBlock);
+  data->setContent(contentBlock);
+
   // sign the packet with peer's key
-  m_keychain.sign(data, security::signingByIdentity(m_producerPrefix));
+  try {
+    m_keychain.sign(*data, security::signingByIdentity(signerIdentity));
+  }
+  catch(const std::exception& e) {
+    return ReturnCode::signingError(e.what());
+  }
+  record.m_data = data;
+
+  // add it to the tailing record
+  m_tailingRecords.push_back(data->getFullName());
+
+  // @TODO
+  // send out notification
+  // add it to cache, or database @TODO: need discussion
+  return ReturnCode::noError();
 }
 
 ReturnCode

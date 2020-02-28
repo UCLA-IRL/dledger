@@ -25,7 +25,7 @@ public:
   ~LedgerImpl() override;
 
   ReturnCode
-  addRecord(const std::string& recordName, const std::string& payload) override;
+  addRecord(const std::string& recordIdentifier, Record& record, const Name& signerIdentity) override;
 
   ReturnCode
   getRecord(const std::string& recordName, Record& record) override;
@@ -57,7 +57,7 @@ private:
   security::KeyChain& m_keychain;
   Face& m_network;
 
-  std::vector<std::string> m_tailingRecords;
+  std::vector<Name> m_tailingRecords;
   Backend m_backend;
 };
 
