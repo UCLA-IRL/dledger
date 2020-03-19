@@ -13,6 +13,7 @@ public:
   Backend();
   ~Backend();
 
+  // @param the recordName must be a full name (i.e., containing explicit digest component)
   shared_ptr<Data>
   getRecord(const Name& recordName);
 

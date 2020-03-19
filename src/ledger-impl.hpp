@@ -15,45 +15,42 @@ namespace dledger {
 class LedgerImpl : public Ledger
 {
 public:
-  LedgerImpl(const Config& config,
-             const Name& multicastPrefix,
-             const Name& producerPrefix,
-             const security::v2::Certificate& trustAnchorCert,
-             security::KeyChain& keychain,
-             Face& network);
+  LedgerImpl(const Config& config, security::KeyChain& keychain, Face& network);
 
   ~LedgerImpl() override;
 
   ReturnCode
   addRecord(const std::string& recordIdentifier, Record& record, const Name& signerIdentity) override;
 
-  ReturnCode
-  getRecord(const std::string& recordName, Record& record) override;
+  Record
+  getRecord(const std::string& recordName) override;
 
   bool
   checkRecord(const std::string& recordName) override;
 
-  void
-  setOnRecordAppLogic(const OnNewRecord& onNewRecord) override;
-
 private:
+  // Interet format:
+  // /<multicast_prefix>/NOTIF/<Full Name of Record>(This is one name component)
+  // Signature of the producer
   void
   onNewRecordNotification(const Interest& interest);
 
   void
   onRequestedData(const Interest& interest, const Data& data);
 
+  // Interet format:
+  // /<multicast_prefix>/SYNC
+  // Parameters: A list of tailing record names
   void
   onLedgerSyncRequest(const Interest& interest);
 
+  // Interest format:
+  // record full name
   void
   onRecordRequest(const Interest& interest);
 
 private:
   Config m_config;
-  Name m_multicastPrefix;
-  Name m_producerPrefix;
-  security::v2::Certificate m_trustAnchorCert;
   security::KeyChain& m_keychain;
   Face& m_network;
 

@@ -26,12 +26,19 @@ RecordHeader::wireDecode(const Block& dataContent)
     return m_recordPointers;
   }
   dataContent.parse();
-  const auto& headerBlock = dataContent.get(T_RecordHeader);
-  headerBlock.parse();
-  Name pointer;
-  for (const auto& item : headerBlock.elements()) {
-    pointer.wireDecode(item);
-    m_recordPointers.push_back(pointer);
+  try {
+    const auto& headerBlock = dataContent.get(T_RecordHeader);
+    headerBlock.parse();
+    Name pointer;
+    for (const auto& item : headerBlock.elements()) {
+      if (item.type() == tlv::Name) {
+        pointer.wireDecode(item);
+        m_recordPointers.push_back(pointer);
+      }
+    }
+  }
+  catch (const std::exception& e) {
+    return m_recordPointers;
   }
   return m_recordPointers;
 }
@@ -59,10 +66,17 @@ RecordContent::wireDecode(const Block& dataContent)
     return m_contentItems;
   }
   dataContent.parse();
-  const auto& contentBlock = dataContent.get(T_RecordContent);
-  contentBlock.parse();
-  for (const auto& item : contentBlock.elements()) {
-    m_contentItems.push_back(readString(item));
+  try {
+    const auto& contentBlock = dataContent.get(T_RecordContent);
+    contentBlock.parse();
+    for (const auto& item : contentBlock.elements()) {
+      if (item.type() == T_ContentItem) {
+        m_contentItems.push_back(readString(item));
+      }
+    }
+  }
+  catch (const std::exception& e) {
+    return m_contentItems;
   }
   return m_contentItems;
 }
@@ -73,11 +87,17 @@ Record::Record()
 
 Record::Record(const std::shared_ptr<Data>& data)
   : m_data(data)
-{}
+{
+  m_header.wireDecode(m_data->getContent());
+  m_content.wireDecode(m_data->getContent());
+}
 
 Record::Record(ndn::Data data)
   : m_data(std::make_shared<ndn::Data>(std::move(data)))
-{}
+{
+  m_header.wireDecode(m_data->getContent());
+  m_content.wireDecode(m_data->getContent());
+}
 
 std::string
 Record::getRecordName() const

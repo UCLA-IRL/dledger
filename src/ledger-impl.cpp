@@ -9,15 +9,10 @@ using namespace ndn;
 namespace dledger {
 
 LedgerImpl::LedgerImpl(const Config& config,
-         const Name& multicastPrefix,
-         const Name& producerPrefix,
-         const security::v2::Certificate& trustAnchorCert,
-         security::KeyChain& keychain,
-         Face& network)
-  : m_config(config)
-  , m_multicastPrefix(multicastPrefix)
-  , m_producerPrefix(producerPrefix)
-  , m_trustAnchorCert(trustAnchorCert)
+                       security::KeyChain& keychain,
+                       Face& network)
+  : Ledger()
+  , m_config(config)
   , m_keychain(keychain)
   , m_network(network)
 {}
@@ -42,7 +37,7 @@ LedgerImpl::addRecord(const std::string& recordIdentifier, Record& record, const
   int counter = 0, iterator = 0;
   for (; counter < m_config.preceidingRecordNum && iterator < m_tailingRecords.size(); counter++) {
     const auto& recordId = m_tailingRecords[iterator];
-    if (m_producerPrefix.isPrefixOf(recordId)) {
+    if (m_config.producerPrefix.isPrefixOf(recordId)) {
       counter--;
       iterator++;
       continue;
@@ -54,7 +49,7 @@ LedgerImpl::addRecord(const std::string& recordIdentifier, Record& record, const
     return ReturnCode::notEnoughTailingRecord();
   }
 
-  Name dataName = m_producerPrefix;
+  Name dataName = m_config.producerPrefix;
   dataName.append(recordIdentifier);
   auto data = make_shared<Data>(dataName);
   auto contentBlock = makeEmptyBlock(tlv::Content);
@@ -70,35 +65,41 @@ LedgerImpl::addRecord(const std::string& recordIdentifier, Record& record, const
   }
   record.m_data = data;
 
-  // add it to the tailing record
-  m_tailingRecords.push_back(data->getFullName());
-
   // @TODO
   // send out notification
   // add it to cache, or database @TODO: need discussion
   return ReturnCode::noError();
 }
 
-ReturnCode
-LedgerImpl::getRecord(const std::string& recordName, Record& record)
+Record
+LedgerImpl::getRecord(const std::string& recordName)
 {
-  return ReturnCode::noError();
+  auto dataPtr = m_backend.getRecord(Name(recordName));
+  if (dataPtr != nullptr) {
+    return Record(dataPtr);
+  }
+  else {
+    return Record();
+  }
 }
 
 bool
 LedgerImpl::checkRecord(const std::string& recordName)
 {
-  return true;
-}
-
-void
-LedgerImpl::setOnRecordAppLogic(const OnNewRecord& onNewRecord)
-{
+  auto dataPtr = m_backend.getRecord(Name(recordName));
+  if (dataPtr != nullptr) {
+    return true;
+  }
+  return false;
 }
 
 void
 LedgerImpl::onNewRecordNotification(const Interest& interest)
-{}
+{
+  // extract the Record Data name from the interest
+
+  // a random timer and then fetch it back
+}
 
 void
 LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
@@ -111,6 +112,12 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 void
 LedgerImpl::onRecordRequest(const Interest& interest)
 {}
+
+std::unique_ptr<Ledger>
+Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& face)
+{
+  return std::make_unique<LedgerImpl>(config, keychain, face);
+}
 
 //===============================================================================
 

@@ -26,6 +26,11 @@ public:
     m_recordPointers.push_back(pointer);
   };
 
+  bool
+  isEmpty() {
+    return m_recordPointers.size() == 0;
+  }
+
 private:
   const static uint8_t T_RecordHeader = 129;
   std::list<Name> m_recordPointers;
@@ -40,13 +45,18 @@ public:
   void
   wireEncode(Block& block) const;
 
-  const
-  std::list<std::string>& wireDecode(const Block& dataContent);
+  const std::list<std::string>&
+  wireDecode(const Block& dataContent);
 
   void
   addContentItem(const std::string& contentItem) {
     m_contentItems.push_back(contentItem);
   };
+
+  bool
+  isEmpty() {
+    return m_contentItems.size() == 0;
+  }
 
 private:
   const static uint8_t T_RecordContent = 130;
@@ -72,6 +82,11 @@ public:
   // only used to parse a record returned from the ledger
   const std::list<std::string>&
   getRecordItems() const;
+
+  bool
+  isEmpty() {
+    return m_data == nullptr && m_header.isEmpty() && m_content.isEmpty();
+  }
 
 private:
   // supposed to be used by the Ledger class only

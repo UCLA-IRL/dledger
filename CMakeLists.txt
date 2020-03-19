@@ -20,6 +20,7 @@ set(DLEDGER_LIB_SOURCE_FILES
     ./src/ledger-impl.hpp
     ./src/ledger-impl.cpp
     ./src/record.cpp
+    ./src/config.cpp
     )
 
 # include

@@ -1,11 +1,24 @@
 #include "dledger/record.hpp"
+#include "dledger/ledger.hpp"
+#include <iostream>
+
+#include <ndn-cxx/util/io.hpp>
 
 using namespace dledger;
 
 int main(int argc, char const *argv[])
 {
-  Record record;
-  record.addRecordItem("hello1");
-  record.addRecordItem("hello2");
+  std::shared_ptr<Config> config = nullptr;
+  try {
+    config = Config::DefaultConfig();
+  }
+  catch(const std::exception& e) {
+    std::cout << e.what() << std::endl;
+    return 1;
+  }
+
+  security::KeyChain keychain;
+  Face face;
+  auto ledger = Ledger::initLedger(*config, keychain, face);
   return 0;
 }
