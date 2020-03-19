@@ -1,6 +1,7 @@
 #include "dledger/config.hpp"
 #include <ndn-cxx/util/io.hpp>
 #include <cstdlib>
+#include <ctime>
 
 namespace dledger {
 
@@ -11,6 +12,7 @@ static const std::string DEFAULT_PEER_PREFIX = "/dledger";
 shared_ptr<Config>
 Config::DefaultConfig()
 {
+  std::srand(std::time(nullptr));
   auto config = std::make_shared<Config>(DEFAULT_MULTICAST_PREFIX, DEFAULT_PEER_PREFIX + std::to_string(std::rand()));
   std::string homePath = std::getenv("HOME");
   config->trustAnchorCert = io::load<security::v2::Certificate>(homePath + DEFAULT_ANCHOR_CERT_PATH);

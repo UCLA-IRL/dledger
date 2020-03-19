@@ -65,9 +65,21 @@ LedgerImpl::addRecord(const std::string& recordIdentifier, Record& record, const
   }
   record.m_data = data;
 
-  // @TODO
+  // add new record into the ledger
+  m_backend.putRecord(data);
+
   // send out notification
-  // add it to cache, or database @TODO: need discussion
+  Name intName(m_config.multicastPrefix);
+  intName.append("NOTIF").append(data->getFullName().wireEncode());
+  Interest interest(intName);
+  try {
+    m_keychain.sign(interest, security::signingByIdentity(signerIdentity));
+  }
+  catch(const std::exception& e) {
+    return ReturnCode::signingError(e.what());
+  }
+  m_network.expressInterest(interest, nullptr, nullptr, nullptr);
+
   return ReturnCode::noError();
 }
 
