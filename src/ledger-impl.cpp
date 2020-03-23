@@ -86,7 +86,7 @@ LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
   return ReturnCode::noError();
 }
 
-Record
+optional<Record>
 LedgerImpl::getRecord(const std::string& recordName)
 {
   auto dataPtr = m_backend.getRecord(Name(recordName));
@@ -94,7 +94,7 @@ LedgerImpl::getRecord(const std::string& recordName)
     return Record(dataPtr);
   }
   else {
-    return Record();
+    return nullopt;
   }
 }
 

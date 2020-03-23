@@ -11,9 +11,10 @@ using namespace ndn;
 namespace dledger {
 
 enum RecordType {
-  GenericRecord = 0,
-  CertificateRecord = 1,
-  RevocationRecord = 2,
+  BaseRecord = 0,
+  GenericRecord = 1,
+  CertificateRecord = 2,
+  RevocationRecord = 3,
 };
 
 class RecordHeader
@@ -34,7 +35,7 @@ public:
   };
 
   bool
-  isEmpty() {
+  isEmpty() const {
     return m_recordPointers.size() == 0;
   }
 
@@ -61,7 +62,7 @@ public:
   };
 
   bool
-  isEmpty() {
+  isEmpty() const {
     return m_contentItems.size() == 0;
   }
 
@@ -75,7 +76,7 @@ private:
 class Record
 {
 public:
-  Record();
+  Record(RecordType type, const std::string& identifer);
 
   // only used to generate a record before adding to the ledger
   void
@@ -84,25 +85,23 @@ public:
   };
 
   // only used to parse a record returned from the ledger
+  // cannot be used when a record has not been appended into the ledger
   std::string
   getRecordName() const;
+
+  RecordType
+  getType() const {
+    return m_type;
+  }
 
   // only used to parse a record returned from the ledger
   const std::list<std::string>&
   getRecordItems() const;
 
   bool
-  isEmpty() {
+  isEmpty() const {
     return m_data == nullptr && m_header.isEmpty() && m_content.isEmpty();
   }
-
-  void
-  setRecordIdentifier(const std::string& recordIdentifier) {
-    m_uniqueIdentifier = recordIdentifier;
-  }
-
-  RecordType m_type;
-  std::string m_uniqueIdentifier;
 
 private:
   // supposed to be used by the Ledger class only
@@ -126,6 +125,8 @@ private:
   }
 
 private:
+  RecordType m_type;
+  std::string m_uniqueIdentifier;
   std::shared_ptr<const Data> m_data;
   RecordHeader m_header;
   RecordContent m_content;
@@ -134,10 +135,16 @@ private:
   friend class LedgerImpl;
 };
 
+class GenericRecord : public Record
+{
+public:
+  GenericRecord(const std::string& identifer);
+};
+
 class CertificateRecord : public Record
 {
 public:
-  CertificateRecord();
+  CertificateRecord(const std::string& identifer);
 
   void
   addCertificateItem(const security::v2::Certificate& certificate);

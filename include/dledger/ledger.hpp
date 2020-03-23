@@ -2,6 +2,7 @@
 #define DLEDGER_INCLUDE_LEDGER_H_
 
 #include <iostream>
+#include <optional>
 #include <ndn-cxx/name.hpp>
 #include "dledger/record.hpp"
 #include "dledger/config.hpp"
@@ -22,7 +23,7 @@ public:
   virtual ReturnCode
   addRecord(Record& record, const Name& signerIdentity) = 0;
 
-  virtual Record
+  virtual optional<Record>
   getRecord(const std::string& recordName) = 0;
 
   virtual bool

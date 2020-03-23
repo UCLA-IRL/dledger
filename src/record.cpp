@@ -81,15 +81,18 @@ RecordContent::wireDecode(const Block& dataContent)
   return m_contentItems;
 }
 
-Record::Record()
+Record::Record(RecordType type, const std::string& identifer)
   : m_data(nullptr)
-  , m_type(GenericRecord)
+  , m_type(type)
+  , m_uniqueIdentifier(identifer)
 {}
 
 Record::Record(const std::shared_ptr<Data>& data)
   : m_data(data)
   , m_type(GenericRecord)
 {
+  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
+  m_type = (RecordType)std::stoi(readString(m_data->getName().get(2)));
   m_uniqueIdentifier = readString(m_data->getName().get(3));
   m_header.wireDecode(m_data->getContent());
   m_content.wireDecode(m_data->getContent());
@@ -99,6 +102,8 @@ Record::Record(ndn::Data data)
   : m_data(std::make_shared<ndn::Data>(std::move(data)))
   , m_type(GenericRecord)
 {
+  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
+  m_type = (RecordType)std::stoi(readString(m_data->getName().get(2)));
   m_uniqueIdentifier = readString(m_data->getName().get(3));
   m_header.wireDecode(m_data->getContent());
   m_content.wireDecode(m_data->getContent());
@@ -126,9 +131,13 @@ Record::getRecordItems() const
   return content.wireDecode(m_data->getContent());
 }
 
-CertificateRecord::CertificateRecord()
-  : Record()
-  , m_type(CertificateRecord)
+GenericRecord::GenericRecord(const std::string& identifer)
+  : Record(RecordType::GenericRecord, identifer)
+{
+}
+
+CertificateRecord::CertificateRecord(const std::string& identifer)
+  : Record(RecordType::CertificateRecord, identifer)
 {
 }
 

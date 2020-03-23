@@ -22,7 +22,7 @@ public:
   ReturnCode
   addRecord(Record& record, const Name& signerIdentity) override;
 
-  Record
+  optional<Record>
   getRecord(const std::string& recordName) override;
 
   bool
