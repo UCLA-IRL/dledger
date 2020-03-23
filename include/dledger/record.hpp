@@ -5,9 +5,16 @@
 #include <vector>
 #include <list>
 #include <ndn-cxx/data.hpp>
+#include <ndn-cxx/security/v2/certificate.hpp>
 
 using namespace ndn;
 namespace dledger {
+
+enum RecordType {
+  GenericRecord = 0,
+  CertificateRecord = 1,
+  RevocationRecord = 2,
+};
 
 class RecordHeader
 {
@@ -64,6 +71,7 @@ private:
   std::list<std::string> m_contentItems;
 };
 
+// Record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-identifier>/<timestamp>
 class Record
 {
 public:
@@ -87,6 +95,14 @@ public:
   isEmpty() {
     return m_data == nullptr && m_header.isEmpty() && m_content.isEmpty();
   }
+
+  void
+  setRecordIdentifier(const std::string& recordIdentifier) {
+    m_uniqueIdentifier = recordIdentifier;
+  }
+
+  RecordType m_type;
+  std::string m_uniqueIdentifier;
 
 private:
   // supposed to be used by the Ledger class only
@@ -116,6 +132,18 @@ private:
   // std::vector<std::string> m_precedingRecords;
   // std::set<std::string> m_approvers;
   friend class LedgerImpl;
+};
+
+class CertificateRecord : public Record
+{
+public:
+  CertificateRecord();
+
+  void
+  addCertificateItem(const security::v2::Certificate& certificate);
+
+  const std::list<security::v2::Certificate>&
+  getCertificates() const;
 };
 
 } // namespace dledger

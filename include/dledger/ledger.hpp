@@ -20,7 +20,7 @@ public:
   virtual ~Ledger() = default;
 
   virtual ReturnCode
-  addRecord(const std::string& recordIdentifier, Record& record, const Name& signerIdentity) = 0;
+  addRecord(Record& record, const Name& signerIdentity) = 0;
 
   virtual Record
   getRecord(const std::string& recordName) = 0;

@@ -3,6 +3,7 @@
 #include <random>
 #include <ndn-cxx/encoding/block-helpers.hpp>
 #include <ndn-cxx/security/signing-helpers.hpp>
+#include <ndn-cxx/security/verification-helpers.hpp>
 #include <ndn-cxx/util/sha256.hpp>
 
 using namespace ndn;
@@ -21,7 +22,7 @@ LedgerImpl::~LedgerImpl()
 {}
 
 ReturnCode
-LedgerImpl::addRecord(const std::string& recordIdentifier, Record& record, const Name& signerIdentity)
+LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
 {
   if (m_tailingRecords.size() <= 0) {
     return ReturnCode::noTailingRecord();
@@ -49,8 +50,10 @@ LedgerImpl::addRecord(const std::string& recordIdentifier, Record& record, const
     return ReturnCode::notEnoughTailingRecord();
   }
 
+  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
+  // each <> represent only one component
   Name dataName = m_config.producerPrefix;
-  dataName.append(recordIdentifier);
+  dataName.append(std::to_string(record.m_type)).append(record.m_uniqueIdentifier).appendTimestamp();
   auto data = make_shared<Data>(dataName);
   auto contentBlock = makeEmptyBlock(tlv::Content);
   record.wireEncode(contentBlock);
@@ -108,8 +111,10 @@ LedgerImpl::checkRecord(const std::string& recordName)
 void
 LedgerImpl::onNewRecordNotification(const Interest& interest)
 {
+  // verify the signature
+  // if (security::verifySignature(interest, TODO: certificate of the peer))
   // extract the Record Data name from the interest
-
+  auto nameBlock = interest.getName().get(2);
   // a random timer and then fetch it back
 }
 

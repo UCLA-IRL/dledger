@@ -20,7 +20,7 @@ public:
   ~LedgerImpl() override;
 
   ReturnCode
-  addRecord(const std::string& recordIdentifier, Record& record, const Name& signerIdentity) override;
+  addRecord(Record& record, const Name& signerIdentity) override;
 
   Record
   getRecord(const std::string& recordName) override;
@@ -29,8 +29,8 @@ public:
   checkRecord(const std::string& recordName) override;
 
 private:
-  // Interet format:
-  // /<multicast_prefix>/NOTIF/<Full Name of Record>(This is one name component)
+  // Interet format: each <> is only one name component
+  // /<multicast_prefix>/NOTIF/<Full Name of Record>
   // Signature of the producer
   void
   onNewRecordNotification(const Interest& interest);
@@ -55,6 +55,7 @@ private:
   Face& m_network;
 
   std::vector<Name> m_tailingRecords;
+  std::map<Name, Name> m_peerCertificates; // first: name of the peer, second: name of the certificate record
   Backend m_backend;
 };
 

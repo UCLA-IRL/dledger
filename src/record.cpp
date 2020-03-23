@@ -83,18 +83,23 @@ RecordContent::wireDecode(const Block& dataContent)
 
 Record::Record()
   : m_data(nullptr)
+  , m_type(GenericRecord)
 {}
 
 Record::Record(const std::shared_ptr<Data>& data)
   : m_data(data)
+  , m_type(GenericRecord)
 {
+  m_uniqueIdentifier = readString(m_data->getName().get(3));
   m_header.wireDecode(m_data->getContent());
   m_content.wireDecode(m_data->getContent());
 }
 
 Record::Record(ndn::Data data)
   : m_data(std::make_shared<ndn::Data>(std::move(data)))
+  , m_type(GenericRecord)
 {
+  m_uniqueIdentifier = readString(m_data->getName().get(3));
   m_header.wireDecode(m_data->getContent());
   m_content.wireDecode(m_data->getContent());
 }
@@ -120,5 +125,24 @@ Record::getRecordItems() const
   RecordContent content;
   return content.wireDecode(m_data->getContent());
 }
+
+CertificateRecord::CertificateRecord()
+  : Record()
+  , m_type(CertificateRecord)
+{
+}
+
+void
+CertificateRecord::addCertificateItem(const security::v2::Certificate& certificate)
+{
+
+}
+
+const std::list<security::v2::Certificate>&
+CertificateRecord::getCertificates() const
+{
+
+}
+
 
 } // namespace DLedger
