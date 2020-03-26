@@ -118,17 +118,49 @@ LedgerImpl::onNewRecordNotification(const Interest& interest)
   // a random timer and then fetch it back
 }
 
+static void
+check_record_function() {
+  // 1. check format: name, payload: all the TLVs are there
+  // to do this: decode it into our record class
+  // 2. check signature
+  //  --- look into the key-locator field Data: so that you know which key be used to verify
+  //  --- key-locator: name of the key
+  //  *--- add new field to the content: record-id: certificate record
+  // it must have a sig signed by a certificate in the ledger
+  // 3. check rate limit -- state in memory, dict: peer-id, timestamp of latest record
+}
+
 void
 LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
-{}
+{
+  // Context: this peer sent a Interest to ask for a Data
+  // this function is to handle the replied Data.
+
+  // maybe a static function outside this fun but in the same cpp file
+  // check_record_function
+}
 
 void
 LedgerImpl::onLedgerSyncRequest(const Interest& interest)
-{}
+{
+  // Context: you received a Interet packet which contains a list of tailing records
+
+  // you should compare your own tailing records with this one
+  // if not same:
+  // 1. you see a new record that is not in your, go fetch it and all the further records until all of them are in your ledger
+  // 2. you see a record but it's no longer a tailing record in your ledger, then you send your SyncRequest
+
+  // in 1. whenever you get a new record, do record check
+}
 
 void
 LedgerImpl::onRecordRequest(const Interest& interest)
-{}
+{
+  // Context: you received an Interest asking for a record
+
+  // check whether you have it, if yes, reply
+  // if not, drop it
+}
 
 std::unique_ptr<Ledger>
 Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& face)
