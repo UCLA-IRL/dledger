@@ -103,7 +103,7 @@ public:
     return m_data == nullptr && m_header.isEmpty() && m_content.isEmpty();
   }
 
-private:
+
   // supposed to be used by the Ledger class only
   Record(const std::shared_ptr<Data>& data);
   Record(Data data);
@@ -117,7 +117,7 @@ private:
   addPointer(const Name& pointer) {
     m_header.addPointer(pointer);
   };
-
+private:
   void
   wireEncode(Block& block) const {
     m_header.wireEncode(block);

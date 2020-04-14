@@ -5,6 +5,8 @@
 #include <ndn-cxx/security/signing-helpers.hpp>
 #include <ndn-cxx/security/verification-helpers.hpp>
 #include <ndn-cxx/util/sha256.hpp>
+#include <time.h>       /* time */
+
 
 using namespace ndn;
 namespace dledger {
@@ -16,6 +18,7 @@ LedgerImpl::LedgerImpl(const Config& config,
   , m_config(config)
   , m_keychain(keychain)
   , m_network(network)
+  //consider adding a producer identity member?
 {}
 
 LedgerImpl::~LedgerImpl()
@@ -111,15 +114,68 @@ LedgerImpl::checkRecord(const std::string& recordName)
 void
 LedgerImpl::onNewRecordNotification(const Interest& interest)
 {
-  // verify the signature
-  // if (security::verifySignature(interest, TODO: certificate of the peer))
-  // extract the Record Data name from the interest
-  auto nameBlock = interest.getName().get(2);
+  //Temporary stand-in. 
+  security::v2::Certificate certInLedger;
+  if(!security::verifySignature(interest, certInLedger)){
+    std::cout << "Signature wasn't verified in onNewRecord";
+  } else {
+    // verify the signature
+    // if (security::verifySignature(interest, TODO: certificate of the peer))
+    // extract the Record Data name from the interest
+    auto nameBlock = interest.getName().get(-1).toUri();
+    std::mt19937_64 eng{std::random_device{}()}; 
+    std::uniform_int_distribution<> dist{10, 100};
+    sleep(dist(eng)/100);
+    //chop off NOTIF bit
+    ndn::Name interestForRecordName = interest.getName().getSubName(1, interest.getName.size()-2);
+    //need a producerID
+    interestForRecordName.append(m_producerId);
+    interestForRecordName.append(interest.getName().get(-1));
+    Interest interestForRecord(interestForRecordName);
+
+    std::cout << "Sending Interest " << interestForRecord << std::endl;
+    m_network.expressInterest(interestForRecord,
+                           bind(&LedgerImpl::onRequestedData, this,  _1, _2),
+                           bind(&LedgerImpl::onNack, this, _1, _2),
+                           bind(&LedgerImpl::onTimeout, this, _1));
+
+
+
+  }
+
   // a random timer and then fetch it back
 }
 
-static void
-check_record_function() {
+void
+LedgerImpl::onNack(const Interest&, const lp::Nack& nack) 
+{
+  std::cout << "Received Nack with reason " << nack.getReason() << std::endl;
+}
+
+void
+LedgerImpl::onTimeout(const Interest& interest) 
+{
+  std::cout << "Timeout for " << interest << std::endl;
+}
+
+bool
+check_record_function(const Data& data) {
+  try {
+  dledger::Record dataRecord = dledger::Record(data);
+  } catch(const std::exception& e) {
+    std::cout << "Record wasn't proper";
+    return false;
+  }
+  //Kknow this isn't right, but not sure how to use the keyLocator
+  KeyLocator keyl = KeyLocator(data.getSignature().getKeyLocator());
+
+  //ok, now do the rate check
+  auto producedBy = data.getName().get(-2).toUri();
+  std::time_t present = std::time(0);
+  //magic number is seconds in a day
+  if(!((present - m_rateCheck[producedBy]) < 86400)){
+    return false;
+  }
   // 1. check format: name, payload: all the TLVs are there
   // to do this: decode it into our record class
   // 2. check signature
@@ -128,6 +184,7 @@ check_record_function() {
   //  *--- add new field to the content: record-id: certificate record
   // it must have a sig signed by a certificate in the ledger
   // 3. check rate limit -- state in memory, dict: peer-id, timestamp of latest record
+  return true;
 }
 
 void
@@ -135,7 +192,13 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
 {
   // Context: this peer sent a Interest to ask for a Data
   // this function is to handle the replied Data.
-
+  if(!check_record_function(data)){
+    std::cout << "Requested data malformed";
+  }
+  auto producedBy = data.getName().get(-2).toUri();
+  std::time_t present = std::time(0);
+  m_rateCheck[producedBy] = present;
+  addRecord(Record(data), producedBy);
   // maybe a static function outside this fun but in the same cpp file
   // check_record_function
 }
@@ -143,8 +206,21 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
 void
 LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 {
-  // Context: you received a Interet packet which contains a list of tailing records
+  // Context: you received a Interest packet which contains a list of tailing records
+  //Assumes that the tailing list is the last part of the name
+  ndn::Name recordName = interest.getName().get(-1); //Name component -- toURI?
+  std::vector<ndn::Name> diff;
+  std::vector<ndn::Name> receivedTail = std::vector<ndn::Name>(recordName);
+  std::set_difference(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail.begin(), receivedTail.end(),
+        std::inserter(diff, diff.begin()));
+  //really what we want to do is make a new vector of names, and add any names the two don't have incommon.
+  //if they're the same, nothing to do
+  //else send all tailing records? what if there are additional records that aren't tailing?
+  if (true){
+    //return success? 
+  } else {
 
+  }
   // you should compare your own tailing records with this one
   // if not same:
   // 1. you see a new record that is not in your, go fetch it and all the further records until all of them are in your ledger
@@ -157,7 +233,17 @@ void
 LedgerImpl::onRecordRequest(const Interest& interest)
 {
   // Context: you received an Interest asking for a record
-
+  ndn::Name recordName = interest.getName().get(-1).toUri();
+  auto dataPtr = m_backend.getRecord(recordName);
+  if(dataPtr){
+    Data toReturn;
+    toReturn.setName(interest.getName());
+    toReturn.setContent(dataPtr->getContent());
+    m_keychain.sign(toReturn);
+    m_network.put(toReturn);
+  } else {
+    //do nothing
+  }
   // check whether you have it, if yes, reply
   // if not, drop it
 }
@@ -167,6 +253,8 @@ Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& fac
 {
   return std::make_unique<LedgerImpl>(config, keychain, face);
 }
+
+
 
 //===============================================================================
 
