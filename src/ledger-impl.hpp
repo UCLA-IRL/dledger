@@ -32,6 +32,7 @@ public:
 
   void onTimeout(const Interest& interest);
 
+
 private:
   // Interet format: each <> is only one name component
   // /<multicast_prefix>/NOTIF/<Full Name of Record>
@@ -53,13 +54,17 @@ private:
   void
   onRecordRequest(const Interest& interest);
 
+  bool check_record_function(const Data& data);
+
+
+
 private:
   Config m_config;
   security::KeyChain& m_keychain;
   Face& m_network;
 
   ndn::Name m_producerId;
-  std::map<ndn::Name, std::time_t> m_rateCheck;
+  std::map<std::string, std::time_t> m_rateCheck;
   std::vector<Name> m_tailingRecords;
   std::map<Name, Name> m_peerCertificates; // first: name of the peer, second: name of the certificate record
   Backend m_backend;

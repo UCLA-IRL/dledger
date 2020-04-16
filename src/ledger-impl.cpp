@@ -127,10 +127,8 @@ LedgerImpl::onNewRecordNotification(const Interest& interest)
     std::uniform_int_distribution<> dist{10, 100};
     sleep(dist(eng)/100);
     //chop off NOTIF bit
-    ndn::Name interestForRecordName = interest.getName().getSubName(1, interest.getName.size()-2);
-    //need a producerID
-    interestForRecordName.append(m_producerId);
-    interestForRecordName.append(interest.getName().get(-1));
+    ndn::Name interestForRecordName;
+    interestForRecordName.wireDecode(interest.getName().get(-1).blockFromValue());
     Interest interestForRecord(interestForRecordName);
 
     std::cout << "Sending Interest " << interestForRecord << std::endl;
@@ -168,12 +166,14 @@ check_record_function(const Data& data) {
   }
   //Kknow this isn't right, but not sure how to use the keyLocator
   KeyLocator keyl = KeyLocator(data.getSignature().getKeyLocator());
-
+  //Add state to ledger class which is another dictionary? Key is keylocator [keyname], value is the certificate. If have key, verify, else then trash
   //ok, now do the rate check
-  auto producedBy = data.getName().get(-2).toUri();
+  std::string producedBy = data.getName().get(-3).toUri();
   std::time_t present = std::time(0);
   //magic number is seconds in a day
-  if(!((present - m_rateCheck[producedBy]) < 86400)){
+  long day = 86400;
+  long timeDiff = static_cast<long int> ((present - m_rateCheck[producedBy] ));
+  if(!(timeDiff < day)){
     return false;
   }
   // 1. check format: name, payload: all the TLVs are there
@@ -194,11 +194,13 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
   // this function is to handle the replied Data.
   if(!check_record_function(data)){
     std::cout << "Requested data malformed";
+    return;
+  } else {  
+    auto producedBy = data.getName().get(-3).toUri();
+    std::time_t present = std::time(0);
+    m_rateCheck[producedBy] = present;
+    m_backend.putRecord((make_shared<Data>(data)));
   }
-  auto producedBy = data.getName().get(-2).toUri();
-  std::time_t present = std::time(0);
-  m_rateCheck[producedBy] = present;
-  addRecord(Record(data), producedBy);
   // maybe a static function outside this fun but in the same cpp file
   // check_record_function
 }
@@ -208,9 +210,10 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 {
   // Context: you received a Interest packet which contains a list of tailing records
   //Assumes that the tailing list is the last part of the name
-  ndn::Name recordName = interest.getName().get(-1); //Name component -- toURI?
+  ndn::name::Component lastComponent = interest.getName().get(-1);
+  lastComponent.wireDecode(lastComponent.blockFromValue());
+  std::vector<ndn::Name> receivedTail = lastComponent;
   std::vector<ndn::Name> diff;
-  std::vector<ndn::Name> receivedTail = std::vector<ndn::Name>(recordName);
   std::set_difference(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail.begin(), receivedTail.end(),
         std::inserter(diff, diff.begin()));
   //really what we want to do is make a new vector of names, and add any names the two don't have incommon.
@@ -233,14 +236,11 @@ void
 LedgerImpl::onRecordRequest(const Interest& interest)
 {
   // Context: you received an Interest asking for a record
-  ndn::Name recordName = interest.getName().get(-1).toUri();
+  ndn::Name recordName;
+  recordName.wireDecode(interest.getName().get(-1).blockFromValue());
   auto dataPtr = m_backend.getRecord(recordName);
   if(dataPtr){
-    Data toReturn;
-    toReturn.setName(interest.getName());
-    toReturn.setContent(dataPtr->getContent());
-    m_keychain.sign(toReturn);
-    m_network.put(toReturn);
+    m_network.put(*dataPtr);
   } else {
     //do nothing
   }
