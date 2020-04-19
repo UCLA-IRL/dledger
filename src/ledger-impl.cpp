@@ -102,7 +102,7 @@ LedgerImpl::getRecord(const std::string& recordName)
 }
 
 bool
-LedgerImpl::checkRecord(const std::string& recordName)
+LedgerImpl::hasRecord(const std::string& recordName)
 {
   auto dataPtr = m_backend.getRecord(Name(recordName));
   if (dataPtr != nullptr) {
@@ -114,7 +114,7 @@ LedgerImpl::checkRecord(const std::string& recordName)
 void
 LedgerImpl::onNewRecordNotification(const Interest& interest)
 {
-  //Temporary stand-in. 
+  //Temporary stand-in.
   security::v2::Certificate certInLedger;
   if(!security::verifySignature(interest, certInLedger)){
     std::cout << "Signature wasn't verified in onNewRecord";
@@ -123,7 +123,7 @@ LedgerImpl::onNewRecordNotification(const Interest& interest)
     // if (security::verifySignature(interest, TODO: certificate of the peer))
     // extract the Record Data name from the interest
     auto nameBlock = interest.getName().get(-1).toUri();
-    std::mt19937_64 eng{std::random_device{}()}; 
+    std::mt19937_64 eng{std::random_device{}()};
     std::uniform_int_distribution<> dist{10, 100};
     sleep(dist(eng)/100);
     //chop off NOTIF bit
@@ -145,19 +145,37 @@ LedgerImpl::onNewRecordNotification(const Interest& interest)
 }
 
 void
-LedgerImpl::onNack(const Interest&, const lp::Nack& nack) 
+LedgerImpl::onNack(const Interest&, const lp::Nack& nack)
 {
   std::cout << "Received Nack with reason " << nack.getReason() << std::endl;
 }
 
 void
-LedgerImpl::onTimeout(const Interest& interest) 
+LedgerImpl::onTimeout(const Interest& interest)
 {
   std::cout << "Timeout for " << interest << std::endl;
 }
 
+void
+LedgerImpl::sendPerodicSyncInterest()
+{
+  Name syncInterestName = m_config.multicastPrefix;
+  syncInterestName.append("SYNC");
+  Interest syncInterest(syncInterestName);
+  std::string appParameters = "";
+  for (const auto& item : m_tailingRecords) {
+    appParameters += item.toUri();
+    appParameters += "\n";
+  }
+  syncInterest.setApplicationParameters((uint8_t*)appParameters.c_str(), appParameters.size());
+  m_keychain.sign(syncInterest, signingByIdentity(m_config.producerPrefix));
+   // nullptrs for callbacks because a sync Interest is not expecting a Data back
+  m_network.expressInterest(syncInterest, nullptr, nullptr, nullptr);
+}
+
 bool
-check_record_function(const Data& data) {
+LedgerImpl::checkValidityOfRecord(const Data& data)
+{
   try {
   dledger::Record dataRecord = dledger::Record(data);
   } catch(const std::exception& e) {
@@ -192,17 +210,17 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
 {
   // Context: this peer sent a Interest to ask for a Data
   // this function is to handle the replied Data.
-  if(!check_record_function(data)){
+  if(!checkValidityOfRecord(data)){
     std::cout << "Requested data malformed";
     return;
-  } else {  
+  } else {
     auto producedBy = data.getName().get(-3).toUri();
     std::time_t present = std::time(0);
     m_rateCheck[producedBy] = present;
     m_backend.putRecord((make_shared<Data>(data)));
   }
   // maybe a static function outside this fun but in the same cpp file
-  // check_record_function
+  // checkValidityOfRecord
 }
 
 void
@@ -212,15 +230,15 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
   //Assumes that the tailing list is the last part of the name
   ndn::name::Component lastComponent = interest.getName().get(-1);
   lastComponent.wireDecode(lastComponent.blockFromValue());
-  std::vector<ndn::Name> receivedTail = lastComponent;
+  std::vector<ndn::Name> receivedTail;
   std::vector<ndn::Name> diff;
   std::set_difference(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail.begin(), receivedTail.end(),
-        std::inserter(diff, diff.begin()));
+                      std::inserter(diff, diff.begin()));
   //really what we want to do is make a new vector of names, and add any names the two don't have incommon.
   //if they're the same, nothing to do
   //else send all tailing records? what if there are additional records that aren't tailing?
   if (true){
-    //return success? 
+    //return success?
   } else {
 
   }

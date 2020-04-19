@@ -26,14 +26,23 @@ public:
   getRecord(const std::string& recordName) override;
 
   bool
-  checkRecord(const std::string& recordName) override;
-
-  void onNack(const Interest&, const lp::Nack& nack);
-
-  void onTimeout(const Interest& interest);
-
+  hasRecord(const std::string& recordName) override;
 
 private:
+  void
+  onNack(const Interest&, const lp::Nack& nack);
+
+  void
+  onTimeout(const Interest& interest);
+
+  // the function to generate a sync Interest and send it out
+  // should be invoked periodically or on solicit request
+  void
+  sendPerodicSyncInterest();
+
+  bool
+  checkValidityOfRecord(const Data& data);
+
   // Interet format: each <> is only one name component
   // /<multicast_prefix>/NOTIF/<Full Name of Record>
   // Signature of the producer
@@ -54,9 +63,8 @@ private:
   void
   onRecordRequest(const Interest& interest);
 
-  bool check_record_function(const Data& data);
-
-
+  bool
+  check_record_function(const Data& data);
 
 private:
   Config m_config;

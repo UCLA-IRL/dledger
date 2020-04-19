@@ -27,7 +27,7 @@ public:
   getRecord(const std::string& recordName) = 0;
 
   virtual bool
-  checkRecord(const std::string& recordName) = 0;
+  hasRecord(const std::string& recordName) = 0;
 
   virtual void
   setOnRecordAppLogic(const OnRecordAppLogic& onRecordAppLogic) {
