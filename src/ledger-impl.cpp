@@ -6,7 +6,8 @@
 #include <ndn-cxx/security/verification-helpers.hpp>
 #include <ndn-cxx/util/sha256.hpp>
 #include <time.h>       /* time */
-
+#include <boost/algorithm/string/classification.hpp> // Include boost::for is_any_of
+#include <boost/algorithm/string/split.hpp> // Include for boost::split
 
 using namespace ndn;
 namespace dledger {
@@ -232,8 +233,24 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
   //then for each one of those, check if we have it in our tailing records, if we do, good. if not, go search for it and all further records
   //How to get: Use record.getPointersFromHeader to get back a list of names. 
   //how to make it fully recursive, though? and need to ensure that all preceeding records valid, otherwise you get rid of it... 
+  std::vector<std::string> receivedTail;
+  boost::split(receivedTail, tailFromParam, boost::is_any_of("\n"), boost::token_compress_on);
+  std::vector<ndn::Name> namedReceivedTail;
+  //First, make them NDN names
+  for(int i = 0; i < receivedTail.size();i++){
+    namedReceivedTail.push_back(ndn::Name(receivedTail[i]));
+  }
+  //Check if they're in our tailing records. If they aren't, check if they're in the database. If they aren't, put them in an unverified list. 
+  for(int i = 0; i < receivedTail.size();i++){
+    if (std::find(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail[i])!=m_tailingRecords.end()){
+      std::cout << "This record is already in our ledger";
+    } else if (m_backend.getRecord(receivedTail[i])) {
+      sendPerodicSyncInterest();
+    } else {
 
-  std::vector<ndn::Name> receivedTail;
+    }
+
+  }
   std::vector<ndn::Name> diff;
   std::set_difference(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail.begin(), receivedTail.end(),
                       std::inserter(diff, diff.begin()));
