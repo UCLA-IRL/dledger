@@ -71,6 +71,7 @@ private:
   security::KeyChain& m_keychain;
   Face& m_network;
 
+  std::vector<Name> m_neededRecords;
   ndn::Name m_producerId;
   std::map<std::string, std::time_t> m_rateCheck;
   std::vector<Name> m_tailingRecords;

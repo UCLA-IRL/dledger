@@ -215,6 +215,8 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
     std::cout << "Requested data malformed";
     return;
   } else {
+    //TODO: Additional functionality here where we, before adding it into the ledger, first check out its references
+    //And also go back and ask for more, potentially not adding it at all
     auto producedBy = data.getName().get(-3).toUri();
     std::time_t present = std::time(0);
     m_rateCheck[producedBy] = present;
@@ -222,6 +224,7 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
   }
   // maybe a static function outside this fun but in the same cpp file
   // checkValidityOfRecord
+
 }
 
 void
@@ -247,21 +250,23 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
     } else if (m_backend.getRecord(receivedTail[i])) {
       sendPerodicSyncInterest();
     } else {
+      ndn::Name interestForRecordName;
+      interestForRecordName = (interest.getName().getPrefix(-1));
+      interestForRecordName.append(Name(receivedTail[i]));
+      Interest interestForRecord(interestForRecordName);
 
+      std::cout << "Sending Interest " << interestForRecord << std::endl;
+      m_network.expressInterest(interestForRecord,
+                            bind(&LedgerImpl::onRequestedData, this,  _1, _2),
+                            bind(&LedgerImpl::onNack, this, _1, _2),
+                            bind(&LedgerImpl::onTimeout, this, _1));
     }
 
   }
-  std::vector<ndn::Name> diff;
-  std::set_difference(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail.begin(), receivedTail.end(),
-                      std::inserter(diff, diff.begin()));
   //really what we want to do is make a new vector of names, and add any names the two don't have in common.
   //if they're the same, nothing to do
   //else send all tailing records? what if there are additional records that aren't tailing?
-  if (true){
-    //return success?
-  } else {
 
-  }
   // you should compare your own tailing records with this one
   // if not same:
   // 1. you see a new record that is not in your, go fetch it and all the further records until all of them are in your ledger
@@ -269,6 +274,9 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 
   // in 1. whenever you get a new record, do record check
 }
+
+
+
 
 void
 LedgerImpl::onRecordRequest(const Interest& interest)
