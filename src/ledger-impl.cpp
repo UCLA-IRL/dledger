@@ -227,14 +227,17 @@ void
 LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 {
   // Context: you received a Interest packet which contains a list of tailing records
-  //Assumes that the tailing list is the last part of the name
-  ndn::name::Component lastComponent = interest.getName().get(-1);
-  lastComponent.wireDecode(lastComponent.blockFromValue());
+  const auto& tailFromParam = encoding::readString(interest.getApplicationParameters());
+  //Okay, so we can turn it into a string -- now we need to take that string, separate it into a bunch of strings (demarcated by \n))
+  //then for each one of those, check if we have it in our tailing records, if we do, good. if not, go search for it and all further records
+  //How to get: Use record.getPointersFromHeader to get back a list of names. 
+  //how to make it fully recursive, though? and need to ensure that all preceeding records valid, otherwise you get rid of it... 
+
   std::vector<ndn::Name> receivedTail;
   std::vector<ndn::Name> diff;
   std::set_difference(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail.begin(), receivedTail.end(),
                       std::inserter(diff, diff.begin()));
-  //really what we want to do is make a new vector of names, and add any names the two don't have incommon.
+  //really what we want to do is make a new vector of names, and add any names the two don't have in common.
   //if they're the same, nothing to do
   //else send all tailing records? what if there are additional records that aren't tailing?
   if (true){
