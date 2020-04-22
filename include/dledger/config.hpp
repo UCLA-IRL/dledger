@@ -12,14 +12,31 @@ class Config
 {
 public:
   static shared_ptr<Config> DefaultConfig();
-  static shared_ptr<Config> CustomizedConfig(const std::string& multicastPrefix, const std::string& producerPrefix, const std::string anchorCertPath);
+  static shared_ptr<Config> CustomizedConfig(const std::string& multicastPrefix, const std::string& peerPrefix, const std::string anchorCertPath);
 
-  Config(const std::string& multicastPrefix, const std::string& producerPrefix);
+  /**
+   * Construct a Config instance used for DLedger initialization.
+   * @p multicastPrefix, input, the distributed ledger system's multicast prefix.
+   * @p peerPrefix, input, the unique prefix of the peer.
+   */
+  Config(const std::string& multicastPrefix, const std::string& peerPrefix);
 
 public:
+  /**
+   * The number of preceding records that referenced by a later record.
+   */
   int preceidingRecordNum = 2;
+  /**
+   * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
+   */
   Name multicastPrefix;
-  Name producerPrefix;
+  /**
+   * Producer's unique name prefix, under which an Interest can reach to the producer.
+   */
+  Name peerPrefix;
+  /**
+   * The trust anchor certificate of the whole distributed ledger system.
+   */
   std::shared_ptr<security::v2::Certificate> trustAnchorCert;
 };
 

@@ -34,9 +34,9 @@ Config::CustomizedConfig(const std::string& multicastPrefix, const std::string& 
   return config;
 }
 
-Config::Config(const std::string& multicastPrefix, const std::string& producerPrefix)
+Config::Config(const std::string& multicastPrefix, const std::string& peerPrefix)
   : multicastPrefix(multicastPrefix)
-  , producerPrefix(producerPrefix)
+  , peerPrefix(peerPrefix)
 {
 }
 

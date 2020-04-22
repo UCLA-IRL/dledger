@@ -42,7 +42,7 @@ LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
   int counter = 0, iterator = 0;
   for (; counter < m_config.preceidingRecordNum && iterator < m_tailingRecords.size(); counter++) {
     const auto& recordId = m_tailingRecords[iterator];
-    if (m_config.producerPrefix.isPrefixOf(recordId)) {
+    if (m_config.peerPrefix.isPrefixOf(recordId)) {
       counter--;
       iterator++;
       continue;
@@ -56,7 +56,7 @@ LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
 
   // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
   // each <> represent only one component
-  Name dataName = m_config.producerPrefix;
+  Name dataName = m_config.peerPrefix;
   dataName.append(std::to_string(record.m_type)).append(record.m_uniqueIdentifier).appendTimestamp();
   auto data = make_shared<Data>(dataName);
   auto contentBlock = makeEmptyBlock(tlv::Content);
@@ -169,7 +169,7 @@ LedgerImpl::sendPerodicSyncInterest()
     appParameters += "\n";
   }
   syncInterest.setApplicationParameters((uint8_t*)appParameters.c_str(), appParameters.size());
-  m_keychain.sign(syncInterest, signingByIdentity(m_config.producerPrefix));
+  m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
    // nullptrs for callbacks because a sync Interest is not expecting a Data back
   m_network.expressInterest(syncInterest, nullptr, nullptr, nullptr);
 }

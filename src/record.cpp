@@ -43,12 +43,12 @@ RecordHeader::wireDecode(const Block& dataContent)
   return m_recordPointers;
 }
 
-RecordContent::RecordContent(std::list<std::string> contentItems)
+RecordBody::RecordBody(std::list<std::string> contentItems)
   : m_contentItems(contentItems)
 {}
 
 void
-RecordContent::wireEncode(Block& block) const
+RecordBody::wireEncode(Block& block) const
 {
   auto body = makeEmptyBlock(T_RecordContent);
   for (const auto& item : m_contentItems) {
@@ -60,7 +60,7 @@ RecordContent::wireEncode(Block& block) const
 };
 
 const std::list<std::string>&
-RecordContent::wireDecode(const Block& dataContent)
+RecordBody::wireDecode(const Block& dataContent)
 {
   if (m_contentItems.size() > 0) {
     return m_contentItems;
@@ -127,7 +127,7 @@ Record::getPointersFromHeader() const
 const std::list<std::string>&
 Record::getRecordItems() const
 {
-  RecordContent content;
+  RecordBody content;
   return content.wireDecode(m_data->getContent());
 }
 
