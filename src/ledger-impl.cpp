@@ -100,7 +100,7 @@ LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
   // add new record into the ledger
   m_backend.putRecord(data);
 
-  // send out notification
+  // send out notification: /multicastPrefix/NOTIF/record-name/<digest>
   Name intName(m_config.multicastPrefix);
   intName.append("NOTIF").append(data->getFullName().wireEncode());
   Interest interest(intName);
@@ -175,13 +175,14 @@ LedgerImpl::onNewRecordNotification(const Interest& interest)
     // verify the signature
     // if (security::verifySignature(interest, TODO: certificate of the peer))
     // extract the Record Data name from the interest
-    auto nameBlock = interest.getName().get(-1).toUri();
+
+    // /multicastPrefix/NOTIF/record-name/<digest>
+    auto nameBlock = interest.getName().get(m_config.multicastPrefix.size() + 1).toUri();
     std::mt19937_64 eng{std::random_device{}()};
     std::uniform_int_distribution<> dist{10, 100};
     sleep(dist(eng)/100);
     //chop off NOTIF bit
-    ndn::Name interestForRecordName;
-    interestForRecordName = ndn::Name((interest.getName().get(-1).toUri()));
+    ndn::Name interestForRecordName(nameBlock);
     std::cout << "did i get interest name? \n";
     std::cout << interestForRecordName.toUri();
     std::cout << "\n";
@@ -224,6 +225,9 @@ LedgerImpl::sendPerodicSyncInterest()
   m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
    // nullptrs for callbacks because a sync Interest is not expecting a Data back
   m_network.expressInterest(syncInterest, nullptr, nullptr, nullptr);
+
+  // @todo
+  // scheduler.schedule();
 }
 
 bool
