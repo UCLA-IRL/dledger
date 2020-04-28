@@ -58,6 +58,8 @@ public:
     m_onRecordAppLogic = onRecordAppLogic;
   }
 
+
+
 private:
   OnRecordAppLogic m_onRecordAppLogic;
 };

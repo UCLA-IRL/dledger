@@ -34,6 +34,7 @@ testGenData(std::string signerId)
  //this makes a ledgerImpl, then have it produce data, send out sync requests periodically
  //that's really it
   Face face;
+  
   security::KeyChain keychain;
 
   static const std::string DEFAULT_ANCHOR_CERT_PATH = "/dledger/dledger-anchor.cert";
@@ -51,14 +52,11 @@ testGenData(std::string signerId)
   std::cout << "config declaration works \n";
 
 
-  auto ledger = Ledger::initLedger(*config, keychain, face);
+  dledger::LedgerImpl ledger = LedgerImpl::initLedger(*config, keychain, face);
   //construct a record
-  dledger::RecordType recordType = dledger::RecordType(0);
-  const std::string ident = "dledger/12345";
-  dledger::Record recordToAdd = dledger::Record(recordType, signerId);
-  ledger->addRecord(recordToAdd, Name(signerId));
+  std::cout << "Sync request \n";
+  ledger.sendPerodicSyncInterest();
   std::cout << "processing events \n";
-  face.processEvents();
   return true;
 }
 

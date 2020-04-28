@@ -8,6 +8,10 @@
 #include <ndn-cxx/security/v2/certificate.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
 #include <ndn-cxx/face.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
+#include <boost/asio/io_service.hpp>
+#include <ndn-cxx/util/io.hpp>
+
 
 using namespace ndn;
 namespace dledger {
@@ -27,6 +31,7 @@ public:
 
   bool
   hasRecord(const std::string& recordName) override;
+
 
 private:
   void
@@ -70,6 +75,7 @@ private:
   Config m_config;
   security::KeyChain& m_keychain;
   Face& m_network;
+
 
   std::vector<Name> m_neededRecords;
   ndn::Name m_producerId;
