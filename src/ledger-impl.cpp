@@ -27,16 +27,21 @@ LedgerImpl::LedgerImpl(const Config& config,
                              bind(&Producer::onRegisterFailed, this, _1, _2));
   */
  {
-
+      std::string dbName = LedgerImpl::random_string(2);
+      std::cout << "db name: " << dbName << "\n";
+      m_backend.initDatabase(dbName);
       std::cout << "in constructor \n";
       Name syncName = m_config.multicastPrefix;
       syncName.append("SYNC");
-
+      Name notifName = m_config.multicastPrefix;
+      notifName.append("NOTIF");
 
       m_network.registerPrefix(m_config.multicastPrefix, nullptr, nullptr);
       std::cout << "prefix registered \n";
-      m_network.setInterestFilter(m_config.multicastPrefix, bind(&LedgerImpl::onNewRecordNotification, this, _2), nullptr, nullptr);
+
+      m_network.setInterestFilter(m_config.multicastPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
       m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2));
+      m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2));
       std::cout << "interest filters set \n";
       sendPerodicSyncInterest();
  }
@@ -78,7 +83,7 @@ LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
   if (counter < m_config.preceidingRecordNum) {
     return ReturnCode::notEnoughTailingRecord();
   }
-
+  std::cout << "shuffled tailing records \n";
   // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
   // each <> represent only one component
   Name dataName = m_config.peerPrefix;
@@ -96,6 +101,8 @@ LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
     return ReturnCode::signingError(e.what());
   }
   record.m_data = data;
+  
+  std::cout << "about to putRecord \n";
 
   // add new record into the ledger
   m_backend.putRecord(data);
@@ -103,6 +110,7 @@ LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
   // send out notification: /multicastPrefix/NOTIF/record-name/<digest>
   Name intName(m_config.multicastPrefix);
   intName.append("NOTIF").append(data->getFullName().wireEncode());
+  std::cout << data->getFullName().toUri();
   Interest interest(intName);
   try {
     m_keychain.sign(interest, security::signingByIdentity(signerIdentity));
@@ -283,6 +291,24 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
   // maybe a static function outside this fun but in the same cpp file
   // checkValidityOfRecord
 
+}
+
+//
+std::string 
+LedgerImpl::random_string( size_t length )
+{
+    auto randchar = []() -> char
+    {
+        const char charset[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+        const size_t max_index = (sizeof(charset) - 1);
+        return charset[ rand() % max_index ];
+    };
+    std::string str(length,0);
+    std::generate_n( str.begin(), length, randchar );
+    return str;
 }
 
 void

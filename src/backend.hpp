@@ -23,7 +23,6 @@ public:
   void
   deleteRecord(const Name& recordName);
 
-private:
   void
   initDatabase(const std::string& dbDir);
 

@@ -71,6 +71,8 @@ private:
   bool
   check_record_function(const Data& data);
 
+  std::string
+  random_string(size_t length);
 private:
   Config m_config;
   security::KeyChain& m_keychain;
