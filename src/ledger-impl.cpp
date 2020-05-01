@@ -233,7 +233,8 @@ LedgerImpl::sendPerodicSyncInterest()
   m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
    // nullptrs for callbacks because a sync Interest is not expecting a Data back
   m_network.expressInterest(syncInterest, nullptr, nullptr, nullptr);
-
+  std::cout << "reached end of sendPeriodic\n";
+  std::cout << syncInterest.getName().toUri() << "\n";
   // @todo
   // scheduler.schedule();
 }
@@ -314,9 +315,10 @@ LedgerImpl::random_string( size_t length )
 void
 LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 {
-  std::cout << "onLedgerSync Called";
+  std::cout << "onLedgerSync Called \n";
   // Context: you received a Interest packet which contains a list of tailing records
   const auto& tailFromParam = encoding::readString(interest.getApplicationParameters());
+  std::cout << "encoding worked \n";
   //Okay, so we can turn it into a string -- now we need to take that string, separate it into a bunch of strings (demarcated by \n))
   //then for each one of those, check if we have it in our tailing records, if we do, good. if not, go search for it and all further records
   //How to get: Use record.getPointersFromHeader to get back a list of names. 
@@ -326,6 +328,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
   std::vector<ndn::Name> namedReceivedTail;
   //First, make them NDN names
   for(int i = 0; i < receivedTail.size();i++){
+    std::cout << receivedTail[i] << "\n";
     namedReceivedTail.push_back(ndn::Name(receivedTail[i]));
   }
   //Check if they're in our tailing records. If they aren't, check if they're in the database. If they aren't, put them in an unverified list. 
@@ -340,7 +343,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
       interestForRecordName.append(Name(receivedTail[i]));
       Interest interestForRecord(interestForRecordName);
 
-      std::cout << "Sending Interest " << interestForRecord << std::endl;
+      std::cout << "Sending Interest " << interestForRecord.getName().toUri() << std::endl;
       m_network.expressInterest(interestForRecord,
                             bind(&LedgerImpl::onRequestedData, this,  _1, _2),
                             bind(&LedgerImpl::onNack, this, _1, _2),
@@ -366,7 +369,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 void
 LedgerImpl::onRecordRequest(const Interest& interest)
 {
-  std::cout << "onRecordRequest Called";
+  std::cout << "onRecordRequest Called \n";
   // Context: you received an Interest asking for a record
   ndn::Name recordName;
   recordName.wireDecode(interest.getName().get(-1).blockFromValue());
