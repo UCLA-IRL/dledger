@@ -388,8 +388,8 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
       interestForRecordName = m_config.multicastPrefix;
       interestForRecordName.append(Name(receivedTail[i]));
       Interest interestForRecord(interestForRecordName);
-      interestForRecord.setApplicationParameters(receivedTail[i]);
-
+      interestForRecord.setCanBePrefix(1);
+      interestForRecord.setMustBeFresh(1);
       std::cout << "Sending Interest in onsync " << interestForRecord.getName().toUri() << std::endl;
       m_network.expressInterest(interestForRecord,
                             bind(&LedgerImpl::onRequestedData, this,  _1, _2),
