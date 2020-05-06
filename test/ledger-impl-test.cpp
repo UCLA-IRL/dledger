@@ -51,12 +51,9 @@ testGenData(std::string signerId)
   std::cout << "config declaration works \n";
 
 
-  auto ledger = Ledger::initLedger(*config, keychain, face);
+  auto ledger = Ledger::initLedger(*config, keychain, face, signerId);
   //construct a record
-  dledger::RecordType recordType = dledger::RecordType(0);
-  const std::string ident = "dledger/12345";
-  dledger::Record recordToAdd = dledger::Record(recordType, signerId);
-  ledger->addRecord(recordToAdd, Name(signerId));
+  std::cout << "initialization of ledger worked \n";
   std::cout << "processing events \n";
   face.processEvents();
   return true;

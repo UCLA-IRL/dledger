@@ -19,7 +19,7 @@ namespace dledger {
 class LedgerImpl : public Ledger
 {
 public:
-  LedgerImpl(const Config& config, security::KeyChain& keychain, Face& network);
+  LedgerImpl(const Config& config, security::KeyChain& keychain, Face& network, std::string id);
 
   ~LedgerImpl() override;
 
@@ -77,6 +77,7 @@ private:
   Config m_config;
   security::KeyChain& m_keychain;
   Face& m_network;
+  std::string m_id;
 
 
   std::vector<Name> m_neededRecords;

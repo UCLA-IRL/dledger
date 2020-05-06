@@ -19,6 +19,6 @@ int main(int argc, char const *argv[])
 
   security::KeyChain keychain;
   Face face;
-  auto ledger = Ledger::initLedger(*config, keychain, face);
+  auto ledger = Ledger::initLedger(*config, keychain, face,"test");
   return 0;
 }
