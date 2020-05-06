@@ -16,7 +16,6 @@ namespace dledger {
 
 LedgerImpl::LedgerImpl(const Config& config,
                        security::KeyChain& keychain,
-<<<<<<< HEAD
                        Face& network, std::string id)
   : Ledger()
   , m_config(config)
@@ -25,21 +24,11 @@ LedgerImpl::LedgerImpl(const Config& config,
   , m_id(id)
   //consider adding a producer identity member?
   /*
-=======
-                       Face& network)
-    : Ledger(),
-      m_config(config),
-      m_keychain(keychain),
-      m_network(network)
-//consider adding a producer identity member?
-/*
->>>>>>> f987fd9889b12e3ab74b2071139d51e7293d1374
    m_face.setInterestFilter("/example/testApp",
                              bind(&Producer::onInterest, this, _1, _2),
                              nullptr, // RegisterPrefixSuccessCallback is optional
                              bind(&Producer::onRegisterFailed, this, _1, _2));
   */
-<<<<<<< HEAD
  {
       std::cout << "db name: " << m_id << "\n";
       m_backend.initDatabase(m_id);
@@ -49,8 +38,8 @@ LedgerImpl::LedgerImpl(const Config& config,
       Name notifName = m_config.multicastPrefix;
       notifName.append("NOTIF");
 
-      m_network.registerPrefix(m_config.multicastPrefix, nullptr, nullptr);
-      std::cout << "prefix registered \n";
+      //m_network.registerPrefix(m_config.multicastPrefix, nullptr, nullptr);
+      //std::cout << "prefix registered \n";
 
       m_network.setInterestFilter(m_config.multicastPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
       m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2));
@@ -101,27 +90,6 @@ LedgerImpl::LedgerImpl(const Config& config,
       m_backend.putRecord(data2); 
       sendPerodicSyncInterest();
  }
-=======
-{
-  std::string dbName = LedgerImpl::random_string(2);
-  std::cout << "db name: " << dbName << "\n";
-  m_backend.initDatabase(dbName);
-  std::cout << "in constructor \n";
-  Name syncName = m_config.multicastPrefix;
-  syncName.append("SYNC");
-  Name notifName = m_config.multicastPrefix;
-  notifName.append("NOTIF");
-
-  m_network.registerPrefix(m_config.multicastPrefix, nullptr, nullptr);
-  std::cout << "prefix registered \n";
-
-  m_network.setInterestFilter(m_config.multicastPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
-  m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2));
-  m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2));
-  std::cout << "interest filters set \n";
-  sendPerodicSyncInterest();
-}
->>>>>>> f987fd9889b12e3ab74b2071139d51e7293d1374
 
 LedgerImpl::~LedgerImpl()
 {
@@ -307,16 +275,9 @@ LedgerImpl::sendPerodicSyncInterest()
   }
   syncInterest.setApplicationParameters((uint8_t*)appParameters.c_str(), appParameters.size());
   m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
-<<<<<<< HEAD
    // nullptrs for callbacks because a sync Interest is not expecting a Data back
   m_network.expressInterest(syncInterest.setMustBeFresh(1), nullptr, nullptr, nullptr);
   std::cout << "reached end of sendPeriodic \n";
-=======
-  // nullptrs for callbacks because a sync Interest is not expecting a Data back
-  m_network.expressInterest(syncInterest, nullptr, nullptr, nullptr);
-  std::cout << "reached end of sendPeriodic\n";
-  std::cout << syncInterest.getName().toUri() << "\n";
->>>>>>> f987fd9889b12e3ab74b2071139d51e7293d1374
   // @todo
   // scheduler.schedule();
 }
@@ -361,13 +322,8 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
   std::cout << "onRequestedData Called \n";
   // Context: this peer sent a Interest to ask for a Data
   // this function is to handle the replied Data.
-<<<<<<< HEAD
   if(!checkValidityOfRecord(data)){
     std::cout << "Requested data malformed \n";
-=======
-  if (!checkValidityOfRecord(data)) {
-    std::cout << "Requested data malformed";
->>>>>>> f987fd9889b12e3ab74b2071139d51e7293d1374
     return;
   }
   else {
