@@ -32,7 +32,7 @@ Config::CustomizedConfig(const std::string& multicastPrefix, const std::string& 
     std::cout << "couldn't load anchor certificate \n";
     BOOST_THROW_EXCEPTION(std::runtime_error("Cannot load anchor certificate from the designated path."));
   }
-  std::cout << trustAnchorCert->getName().toUri() << std::endl;
+  std::cout << config->trustAnchorCert->getName().toUri() << std::endl;
   return config;
 }
 
