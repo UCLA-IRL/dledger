@@ -2,15 +2,15 @@
 #define DLEDGER_SRC_BACKEND_H_
 
 #include <leveldb/db.h>
+
 #include <ndn-cxx/data.hpp>
 
 using namespace ndn;
 namespace dledger {
 
-class Backend
-{
+class Backend {
 public:
-  Backend();
+  Backend(const std::string& dbDir = "/tmp/dledger-db");
   ~Backend();
 
   // @param the recordName must be a full name (i.e., containing explicit digest component)
@@ -30,6 +30,6 @@ private:
   leveldb::DB* m_db;
 };
 
-} // namespace DLedger
+}  // namespace dledger
 
-#endif // DLEDGER_SRC_BACKEND_H_
+#endif  // DLEDGER_SRC_BACKEND_H_

@@ -17,79 +17,71 @@ namespace dledger {
 LedgerImpl::LedgerImpl(const Config& config,
                        security::KeyChain& keychain,
                        Face& network, std::string id)
-  : Ledger()
-  , m_config(config)
-  , m_keychain(keychain)
-  , m_network(network)
-  , m_id(id)
-  //consider adding a producer identity member?
-  /*
-   m_face.setInterestFilter("/example/testApp",
-                             bind(&Producer::onInterest, this, _1, _2),
-                             nullptr, // RegisterPrefixSuccessCallback is optional
-                             bind(&Producer::onRegisterFailed, this, _1, _2));
-  */
- {
-      std::cout << "db name: " << m_id << "\n";
-      m_backend.initDatabase(m_id);
-      std::cout << "in constructor \n";
-      Name syncName = m_config.multicastPrefix;
-      syncName.append("SYNC");
-      Name notifName = m_config.multicastPrefix;
-      notifName.append("NOTIF");
+    : Ledger(),
+      m_config(config),
+      m_keychain(keychain),
+      m_network(network),
+      m_id(id)
+{
+  std::cout << "db name: " << m_id << "\n";
+  m_backend.initDatabase("/tmp/dledger-db/" + m_id);
+  std::cout << "in constructor \n";
+  Name syncName = m_config.multicastPrefix;
+  syncName.append("SYNC");
+  Name notifName = m_config.multicastPrefix;
+  notifName.append("NOTIF");
 
-      //m_network.registerPrefix(m_config.multicastPrefix, nullptr, nullptr);
-      //std::cout << "prefix registered \n";
+  //m_network.registerPrefix(m_config.multicastPrefix, nullptr, nullptr);
+  //std::cout << "prefix registered \n";
 
-      m_network.setInterestFilter(m_config.multicastPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
-      m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2));
-      m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2));
-      std::cout << "interest filters set \n";
+  m_network.setInterestFilter(m_config.multicastPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
+  m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2));
+  m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2));
+  std::cout << "interest filters set \n";
 
+  //Make the genesis data
+  m_tailingRecords.push_back(ndn::Name("genesis"));
+  std::cout << "set up tailing record \n";
 
-      //Make the genesis data
-      m_tailingRecords.push_back(ndn::Name("genesis"));
-      std::cout << "set up tailing record \n";
+  Name dataName = Name("genesis");
+  auto data = make_shared<Data>(dataName);
+  auto contentBlock = makeEmptyBlock(tlv::Content);
+  data->setContent(contentBlock);
 
-      Name dataName = Name("genesis");
-      auto data = make_shared<Data>(dataName);
-      auto contentBlock = makeEmptyBlock(tlv::Content);
-      data->setContent(contentBlock);
+  // sign the packet with peer's key
+  try {
+    m_keychain.sign(*data, security::signingByIdentity(m_config.peerPrefix));
+  }
+  catch (const std::exception& e) {
+    std::cout << (e.what());
+  }
+  std::cout << "about to putRecord in const \n";
 
-      // sign the packet with peer's key
-      try {
-        m_keychain.sign(*data, security::signingByIdentity(m_config.peerPrefix));
-      }
-      catch(const std::exception& e) {
-        std::cout << (e.what());
-      }      
-      std::cout << "about to putRecord in const \n";
+  // add new record into the ledger
+  m_backend.putRecord(data);
 
-      // add new record into the ledger
-      m_backend.putRecord(data);
+  //Make an individual piece of data.
+  m_tailingRecords.push_back(ndn::Name(m_id));
+  std::cout << "set up tailing record pt 2 \n";
 
-      //Make an individual piece of data.
-      m_tailingRecords.push_back(ndn::Name(m_id));
-      std::cout << "set up tailing record pt 2 \n";
+  Name dataName2 = Name(m_id);
+  auto data2 = make_shared<Data>(dataName2);
+  auto contentBlock2 = makeEmptyBlock(tlv::Content);
+  data2->setContent(contentBlock2);
 
-      Name dataName2 = Name(m_id);
-      auto data2 = make_shared<Data>(dataName2);
-      auto contentBlock2 = makeEmptyBlock(tlv::Content);
-      data2->setContent(contentBlock2);
+  // sign the packet with peer's key
+  try {
+    m_keychain.sign(*data2, security::signingByIdentity(m_config.peerPrefix));
+  }
+  catch (const std::exception& e) {
+    std::cout << (e.what());
+  }
+  std::cout << "about to putRecord in const \n";
 
-      // sign the packet with peer's key
-      try {
-        m_keychain.sign(*data2, security::signingByIdentity(m_config.peerPrefix));
-      }
-      catch(const std::exception& e) {
-        std::cout << (e.what());
-      }      
-      std::cout << "about to putRecord in const \n";
-
-      // add new record into the ledger
-      m_backend.putRecord(data2); 
-      sendPerodicSyncInterest();
- }
+  // add new record into the ledger
+  m_backend.putRecord(data2);
+  sendPerodicSyncInterest();
+}
 
 LedgerImpl::~LedgerImpl()
 {
@@ -275,7 +267,7 @@ LedgerImpl::sendPerodicSyncInterest()
   }
   syncInterest.setApplicationParameters((uint8_t*)appParameters.c_str(), appParameters.size());
   m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
-   // nullptrs for callbacks because a sync Interest is not expecting a Data back
+  // nullptrs for callbacks because a sync Interest is not expecting a Data back
   m_network.expressInterest(syncInterest.setMustBeFresh(1), nullptr, nullptr, nullptr);
   std::cout << "reached end of sendPeriodic \n";
   // @todo
@@ -322,7 +314,7 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
   std::cout << "onRequestedData Called \n";
   // Context: this peer sent a Interest to ask for a Data
   // this function is to handle the replied Data.
-  if(!checkValidityOfRecord(data)){
+  if (!checkValidityOfRecord(data)) {
     std::cout << "Requested data malformed \n";
     return;
   }
@@ -371,17 +363,19 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
   std::vector<ndn::Name> namedReceivedTail;
   //First, make them NDN names
   std::cout << "List of received names \n";
-  for(int i = 0; i < receivedTail.size();i++){
+  for (int i = 0; i < receivedTail.size(); i++) {
     std::cout << receivedTail[i] << "\n";
     namedReceivedTail.push_back(ndn::Name(receivedTail[i]));
   }
-  //Check if they're in our tailing records. If they aren't, check if they're in the database. If they aren't, put them in an unverified list. 
-  for(int i = 0; i < receivedTail.size(); i++){
-    if (std::find(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail[i])!=m_tailingRecords.end()){
+  //Check if they're in our tailing records. If they aren't, check if they're in the database. If they aren't, put them in an unverified list.
+  for (int i = 0; i < receivedTail.size(); i++) {
+    if (std::find(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail[i]) != m_tailingRecords.end()) {
       std::cout << "This record is already in our tailing records \n";
-    } else if (m_backend.getRecord(receivedTail[i])) {
+    }
+    else if (m_backend.getRecord(receivedTail[i])) {
       std::cout << "we actually already have this record in the ledger \n";
-    } else {
+    }
+    else {
       ndn::Name interestForRecordName;
       interestForRecordName = m_config.multicastPrefix;
       interestForRecordName.append(Name(receivedTail[i]));
@@ -414,12 +408,13 @@ LedgerImpl::onRecordRequest(const Interest& interest)
   std::cout << "on record request interest name " << interest.getName().toUri() << "\n";
   // Context: you received an Interest asking for a record
   ndn::Name recordName;
-  try{
+  try {
     recordName.wireDecode(interest.getName().get(-1).blockFromValue());
-  } catch(const std::exception& e) {
+  }
+  catch (const std::exception& e) {
     std::cerr << e.what();
   }
-  
+
   auto dataPtr = m_backend.getRecord(recordName);
   if (dataPtr) {
     m_network.put(*dataPtr);
@@ -432,7 +427,7 @@ LedgerImpl::onRecordRequest(const Interest& interest)
 }
 
 std::unique_ptr<Ledger>
-Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& face,std::string id)
+Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& face, std::string id)
 {
   std::cout << "ledger init \n";
   return std::make_unique<LedgerImpl>(config, keychain, face, id);

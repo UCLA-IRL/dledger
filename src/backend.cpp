@@ -1,12 +1,13 @@
 #include "backend.hpp"
-#include <iostream>
+
 #include <cassert>
+#include <iostream>
 
 namespace dledger {
 
-Backend::Backend()
+Backend::Backend(const std::string& dbDir)
 {
-  this->initDatabase("/tmp/dledger-db");
+  this->initDatabase(dbDir);
 }
 
 Backend::~Backend()
@@ -72,4 +73,4 @@ Backend::initDatabase(const std::string& dbDir)
   }
 }
 
-} // namespace dledger
+}  // namespace dledger
