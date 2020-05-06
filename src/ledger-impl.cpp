@@ -21,7 +21,8 @@ LedgerImpl::LedgerImpl(const Config& config,
       m_config(config),
       m_keychain(keychain),
       m_network(network),
-      m_id(id)
+      m_id(id),
+      m_scheduler(network.getIoService())
 {
   std::cout << "db name: " << m_id << "\n";
   m_backend.initDatabase("/tmp/dledger-db/" + m_id);
@@ -78,9 +79,10 @@ LedgerImpl::LedgerImpl(const Config& config,
   }
   std::cout << "about to putRecord in const \n";
 
-  // add new record into the ledger
-  m_backend.putRecord(data2);
-  sendPerodicSyncInterest();
+  m_scheduler.schedule(time::seconds(10), [&] {
+    m_backend.putRecord(data2);
+    sendPerodicSyncInterest();
+  });
 }
 
 LedgerImpl::~LedgerImpl()

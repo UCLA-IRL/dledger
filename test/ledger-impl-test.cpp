@@ -35,14 +35,9 @@ testGenData(std::string signerId)
  //that's really it
   Face face;
   security::KeyChain keychain;
-
-  static const std::string DEFAULT_ANCHOR_CERT_PATH = "/dledger/dledger-anchor.cert";
-  static const std::string DEFAULT_MULTICAST_PREFIX = "/dledger-multicast";
-  static const std::string DEFAULT_PEER_PREFIX = "/dledger";
-
   std::shared_ptr<Config> config = nullptr;
   try {
-    config = Config::CustomizedConfig(DEFAULT_MULTICAST_PREFIX, DEFAULT_PEER_PREFIX, "~/");
+    config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + signerId, "~/");
   }
   catch(const std::exception& e) {
     std::cout << e.what() << std::endl;

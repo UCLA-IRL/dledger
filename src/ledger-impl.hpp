@@ -11,6 +11,7 @@
 #include <ndn-cxx/util/scheduler.hpp>
 #include <boost/asio/io_service.hpp>
 #include <ndn-cxx/util/io.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
 
 
 using namespace ndn;
@@ -78,6 +79,7 @@ private:
   security::KeyChain& m_keychain;
   Face& m_network;
   std::string m_id;
+  Scheduler m_scheduler;
 
 
   std::vector<Name> m_neededRecords;
