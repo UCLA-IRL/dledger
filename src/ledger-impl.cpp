@@ -14,6 +14,8 @@
 using namespace ndn;
 namespace dledger {
 
+const static size_t DEFAULT_GENESIS_BLOCKS = 3;
+
 LedgerImpl::LedgerImpl(const Config& config,
                        security::KeyChain& keychain,
                        Face& network, std::string id)
@@ -24,65 +26,63 @@ LedgerImpl::LedgerImpl(const Config& config,
       m_id(id),
       m_scheduler(network.getIoService())
 {
-  std::cout << "db name: " << m_id << "\n";
-  m_backend.initDatabase("/tmp/dledger-db/" + m_id);
-  std::cout << "in constructor \n";
+  //****STEP 1****
+  // Initialize Database
+  std::string dbDir = "/tmp/dledger-db/" + readString(m_config.peerPrefix.get(-1));
+  m_backend.initDatabase(dbDir);
+  std::cout << "STEP 1" << std::endl
+  << "LevelDB at " << dbDir << " has been initialized." << std::endl;
+
+  //****STEP 2****
+  // Register the prefix to local NFD
   Name syncName = m_config.multicastPrefix;
   syncName.append("SYNC");
   Name notifName = m_config.multicastPrefix;
   notifName.append("NOTIF");
-
-  //m_network.registerPrefix(m_config.multicastPrefix, nullptr, nullptr);
-  //std::cout << "prefix registered \n";
-
   m_network.setInterestFilter(m_config.multicastPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
-  m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2));
-  m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2));
-  std::cout << "interest filters set \n";
+  m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2), nullptr, nullptr);
+  m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2), nullptr, nullptr);
+  std::cout << "STEP 2" << std::endl
+  << "Prefixes " << m_config.multicastPrefix.toUri() << ","
+  << syncName.toUri() << ","
+  << notifName.toUri()
+  << " have been registered." << std::endl;
 
-  //Make the genesis data
-  m_tailingRecords.push_back(ndn::Name("genesis"));
-  std::cout << "set up tailing record \n";
-
+  //****STEP 3****
+  // Make the genesis data
+  for (int i = 0; i < DEFAULT_GENESIS_BLOCKS; i++) {
+    m_tailingRecords.push_back(ndn::Name("genesis"));
   Name dataName = Name("genesis");
   auto data = make_shared<Data>(dataName);
   auto contentBlock = makeEmptyBlock(tlv::Content);
   data->setContent(contentBlock);
-
-  // sign the packet with peer's key
-  try {
-    m_keychain.sign(*data, security::signingByIdentity(m_config.peerPrefix));
-  }
-  catch (const std::exception& e) {
-    std::cout << (e.what());
-  }
-  std::cout << "about to putRecord in const \n";
-
-  // add new record into the ledger
   m_backend.putRecord(data);
-
-  //Make an individual piece of data.
-  m_tailingRecords.push_back(ndn::Name(m_id));
-  std::cout << "set up tailing record pt 2 \n";
-
-  Name dataName2 = Name(m_id);
-  auto data2 = make_shared<Data>(dataName2);
-  auto contentBlock2 = makeEmptyBlock(tlv::Content);
-  data2->setContent(contentBlock2);
-
-  // sign the packet with peer's key
-  try {
-    m_keychain.sign(*data2, security::signingByIdentity(m_config.peerPrefix));
   }
-  catch (const std::exception& e) {
-    std::cout << (e.what());
-  }
-  std::cout << "about to putRecord in const \n";
+  std::cout << "STEP 3" << std::endl
+  << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl;
 
-  m_scheduler.schedule(time::seconds(10), [&] {
-    m_backend.putRecord(data2);
-    sendPerodicSyncInterest();
-  });
+  // //Make an individual piece of data.
+  // m_tailingRecords.push_back(ndn::Name(m_id));
+  // std::cout << "set up tailing record pt 2 \n";
+
+  // Name dataName2 = Name(m_id);
+  // auto data2 = make_shared<Data>(dataName2);
+  // auto contentBlock2 = makeEmptyBlock(tlv::Content);
+  // data2->setContent(contentBlock2);
+
+  // // sign the packet with peer's key
+  // try {
+  //   m_keychain.sign(*data2, security::signingByIdentity(m_config.peerPrefix));
+  // }
+  // catch (const std::exception& e) {
+  //   std::cout << (e.what());
+  // }
+  // std::cout << "about to putRecord in const \n";
+
+  // m_scheduler.schedule(time::seconds(10), [&] {
+  //   this->m_backend.putRecord(data2);
+  // });
+  this->sendPerodicSyncInterest();
 }
 
 LedgerImpl::~LedgerImpl()
@@ -90,7 +90,7 @@ LedgerImpl::~LedgerImpl()
 }
 
 ReturnCode
-LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
+LedgerImpl::addRecord(Record& record)
 {
   std::cout << "adding record \n";
   if (m_tailingRecords.size() <= 0) {
@@ -133,7 +133,7 @@ LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
 
   // sign the packet with peer's key
   try {
-    m_keychain.sign(*data, security::signingByIdentity(signerIdentity));
+    m_keychain.sign(*data, security::signingByIdentity(m_config.peerPrefix));
   }
   catch (const std::exception& e) {
     return ReturnCode::signingError(e.what());
@@ -151,7 +151,7 @@ LedgerImpl::addRecord(Record& record, const Name& signerIdentity)
   std::cout << data->getFullName().toUri();
   Interest interest(intName);
   try {
-    m_keychain.sign(interest, security::signingByIdentity(signerIdentity));
+    m_keychain.sign(interest, security::signingByIdentity(m_config.peerPrefix));
   }
   catch (const std::exception& e) {
     return ReturnCode::signingError(e.what());
@@ -258,7 +258,9 @@ LedgerImpl::onTimeout(const Interest& interest)
 void
 LedgerImpl::sendPerodicSyncInterest()
 {
-  std::cout << "sendPeriodicInterest Called \n";
+  std::cout << "[LedgerImpl::sendPerodicSyncInterest] About to send SYNC Interest.\n";
+
+  // construct SYNC Interest
   Name syncInterestName = m_config.multicastPrefix;
   syncInterestName.append("SYNC");
   Interest syncInterest(syncInterestName);
@@ -269,11 +271,12 @@ LedgerImpl::sendPerodicSyncInterest()
   }
   syncInterest.setApplicationParameters((uint8_t*)appParameters.c_str(), appParameters.size());
   m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
-  // nullptrs for callbacks because a sync Interest is not expecting a Data back
-  m_network.expressInterest(syncInterest.setMustBeFresh(1), nullptr, nullptr, nullptr);
-  std::cout << "reached end of sendPeriodic \n";
-  // @todo
-  // scheduler.schedule();
+  // nullptrs for data and timeout callbacks because a sync Interest is not expecting a Data back
+  m_network.expressInterest(syncInterest.setMustBeFresh(1), nullptr,
+                            bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
+
+  // schedule for the next SyncInterest Sending
+  m_scheduler.schedule(time::seconds(10), [this] { sendPerodicSyncInterest(); });
 }
 
 bool
@@ -332,7 +335,6 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
   // checkValidityOfRecord
 }
 
-//
 std::string
 LedgerImpl::random_string(size_t length)
 {

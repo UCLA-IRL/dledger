@@ -29,10 +29,10 @@ Config::CustomizedConfig(const std::string& multicastPrefix, const std::string& 
   auto config = std::make_shared<Config>(multicastPrefix, producerPrefix);
   config->trustAnchorCert = io::load<security::v2::Certificate>(anchorCertPath);
   if (config->trustAnchorCert == nullptr) {
-    //BOOST_THROW_EXCEPTION(std::runtime_error("Cannot load anchor certificate from the designated path."));
     std::cout << "couldn't load anchor certificate \n";
-    std::cout << std::getenv("HOME");
+    BOOST_THROW_EXCEPTION(std::runtime_error("Cannot load anchor certificate from the designated path."));
   }
+  std::cout << trustAnchorCert->getName().toUri() << std::endl;
   return config;
 }
 

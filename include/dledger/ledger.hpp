@@ -30,10 +30,9 @@ public:
   /**
    * Create a new record to the Dledger.
    * @p record, input, the record instance which contains the record payload
-   * @p signerIdentity, input, the identity whose key will be used to sign the record
    */
   virtual ReturnCode
-  addRecord(Record& record, const Name& signerIdentity) = 0;
+  addRecord(Record& record) = 0;
 
   /**
    * Get an existing record from the Dledger.
@@ -57,8 +56,6 @@ public:
   setOnRecordAppLogic(const OnRecordAppLogic& onRecordAppLogic) {
     m_onRecordAppLogic = onRecordAppLogic;
   }
-
-
 
 private:
   OnRecordAppLogic m_onRecordAppLogic;

@@ -25,7 +25,7 @@ public:
   ~LedgerImpl() override;
 
   ReturnCode
-  addRecord(Record& record, const Name& signerIdentity) override;
+  addRecord(Record& record) override;
 
   optional<Record>
   getRecord(const std::string& recordName) override;
