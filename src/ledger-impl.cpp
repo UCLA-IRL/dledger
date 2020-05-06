@@ -39,7 +39,7 @@ LedgerImpl::LedgerImpl(const Config& config,
   syncName.append("SYNC");
   Name notifName = m_config.multicastPrefix;
   notifName.append("NOTIF");
-  m_network.setInterestFilter(m_config.multicastPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
+  m_network.setInterestFilter(m_config.peerPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
   m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2), nullptr, nullptr);
   m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2), nullptr, nullptr);
   std::cout << "STEP 2" << std::endl
@@ -52,11 +52,12 @@ LedgerImpl::LedgerImpl(const Config& config,
   // Make the genesis data
   for (int i = 0; i < DEFAULT_GENESIS_BLOCKS; i++) {
     m_tailingRecords.push_back(ndn::Name("genesis"));
-  Name dataName = Name("genesis");
-  auto data = make_shared<Data>(dataName);
-  auto contentBlock = makeEmptyBlock(tlv::Content);
-  data->setContent(contentBlock);
-  m_backend.putRecord(data);
+    Name dataName = Name("genesis");
+    auto data = make_shared<Data>(dataName);
+    auto contentBlock = makeEmptyBlock(tlv::Content);
+    data->setContent(contentBlock);
+    m_keychain.sign(*data, security::signingWithSha256());
+    m_backend.putRecord(data);
   }
   std::cout << "STEP 3" << std::endl
   << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl;
