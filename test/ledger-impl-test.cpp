@@ -47,7 +47,8 @@ int
 main(int argc, char** argv)
 {
   std::string idName = argv[1];
-  Face face;
+  boost::asio::io_service ioService;
+  Face face(ioService);
   security::KeyChain keychain;
   std::shared_ptr<Config> config = nullptr;
   try {
@@ -57,13 +58,8 @@ main(int argc, char** argv)
     std::cout << e.what() << std::endl;
     return 1;
   }
-  std::cout << "aaaa" << std::endl;
 
   auto ledger = Ledger::initLedger(*config, keychain, face, idName);
-  face.processEvents();
-
-  Record record(RecordType::GenericRecord, "record-1");
-  ledger->addRecord(record);
 
   // auto success = testGenData(idName);
   // if (!success) {
@@ -79,5 +75,6 @@ main(int argc, char** argv)
   // else {
   //   std::cout << "syncint with no errors" << std::endl;
   // }
+  face.processEvents();
   return 0;
 }

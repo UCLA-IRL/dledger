@@ -26,12 +26,13 @@ LedgerImpl::LedgerImpl(const Config& config,
       m_id(id),
       m_scheduler(network.getIoService())
 {
+  std::cout << "\nDLedger Initialization Start" << std::endl;
   //****STEP 1****
   // Initialize Database
   std::string dbDir = "/tmp/dledger-db/" + readString(m_config.peerPrefix.get(-1));
   m_backend.initDatabase(dbDir);
   std::cout << "STEP 1" << std::endl
-  << "LevelDB at " << dbDir << " has been initialized." << std::endl;
+            << "- LevelDB at " << dbDir << " has been initialized." << std::endl;
 
   //****STEP 2****
   // Register the prefix to local NFD
@@ -43,10 +44,10 @@ LedgerImpl::LedgerImpl(const Config& config,
   m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2), nullptr, nullptr);
   m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2), nullptr, nullptr);
   std::cout << "STEP 2" << std::endl
-  << "Prefixes " << m_config.multicastPrefix.toUri() << ","
-  << syncName.toUri() << ","
-  << notifName.toUri()
-  << " have been registered." << std::endl;
+            << "- Prefixes " << m_config.multicastPrefix.toUri() << ","
+            << syncName.toUri() << ","
+            << notifName.toUri()
+            << " have been registered." << std::endl;
 
   //****STEP 3****
   // Make the genesis data
@@ -60,7 +61,8 @@ LedgerImpl::LedgerImpl(const Config& config,
     m_backend.putRecord(data);
   }
   std::cout << "STEP 3" << std::endl
-  << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl;
+            << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
+            << "DLedger Initialization Succeed\n\n";
 
   // //Make an individual piece of data.
   // m_tailingRecords.push_back(ndn::Name(m_id));
@@ -84,6 +86,7 @@ LedgerImpl::LedgerImpl(const Config& config,
   //   this->m_backend.putRecord(data2);
   // });
   this->sendPerodicSyncInterest();
+  this->startPerodicAddRecord();
 }
 
 LedgerImpl::~LedgerImpl()
@@ -158,7 +161,6 @@ LedgerImpl::addRecord(Record& record)
     return ReturnCode::signingError(e.what());
   }
   m_network.expressInterest(interest, nullptr, nullptr, nullptr);
-
   return ReturnCode::noError();
 }
 
@@ -259,7 +261,7 @@ LedgerImpl::onTimeout(const Interest& interest)
 void
 LedgerImpl::sendPerodicSyncInterest()
 {
-  std::cout << "[LedgerImpl::sendPerodicSyncInterest] About to send SYNC Interest.\n";
+  std::cout << "[LedgerImpl::sendPerodicSyncInterest] Send SYNC Interest.\n";
 
   // construct SYNC Interest
   Name syncInterestName = m_config.multicastPrefix;
@@ -271,13 +273,28 @@ LedgerImpl::sendPerodicSyncInterest()
     appParameters += "\n";
   }
   syncInterest.setApplicationParameters((uint8_t*)appParameters.c_str(), appParameters.size());
+  syncInterest.setCanBePrefix(false);
+  syncInterest.setMustBeFresh(true);
   m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
   // nullptrs for data and timeout callbacks because a sync Interest is not expecting a Data back
   m_network.expressInterest(syncInterest.setMustBeFresh(1), nullptr,
                             bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
 
   // schedule for the next SyncInterest Sending
-  m_scheduler.schedule(time::seconds(10), [this] { sendPerodicSyncInterest(); });
+  m_scheduler.schedule(time::seconds(5), [this] { sendPerodicSyncInterest(); });
+}
+
+void
+LedgerImpl::startPerodicAddRecord()
+{
+  Record record(RecordType::GenericRecord, std::to_string(std::rand()));
+  record.addRecordItem(std::to_string(std::rand()));
+  record.addRecordItem(std::to_string(std::rand()));
+  record.addRecordItem(std::to_string(std::rand()));
+  addRecord(record);
+
+  // schedule for the next SyncInterest Sending
+  m_scheduler.schedule(time::seconds(10), [this] { startPerodicAddRecord(); });
 }
 
 bool
@@ -334,22 +351,6 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
   }
   // maybe a static function outside this fun but in the same cpp file
   // checkValidityOfRecord
-}
-
-std::string
-LedgerImpl::random_string(size_t length)
-{
-  auto randchar = []() -> char {
-    const char charset[] =
-        "0123456789"
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "abcdefghijklmnopqrstuvwxyz";
-    const size_t max_index = (sizeof(charset) - 1);
-    return charset[rand() % max_index];
-  };
-  std::string str(length, 0);
-  std::generate_n(str.begin(), length, randchar);
-  return str;
 }
 
 void
