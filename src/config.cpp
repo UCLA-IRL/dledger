@@ -1,7 +1,8 @@
 #include "dledger/config.hpp"
-#include <ndn-cxx/util/io.hpp>
+
 #include <cstdlib>
 #include <ctime>
+#include <ndn-cxx/util/io.hpp>
 
 namespace dledger {
 
@@ -13,7 +14,7 @@ shared_ptr<Config>
 Config::DefaultConfig()
 {
   std::srand(std::time(nullptr));
-  auto config = std::make_shared<Config>(DEFAULT_MULTICAST_PREFIX, DEFAULT_PEER_PREFIX + std::to_string(std::rand()));
+  auto config = std::make_shared<Config>(DEFAULT_MULTICAST_PREFIX, DEFAULT_PEER_PREFIX + "/" + std::to_string(std::rand()));
   std::string homePath = std::getenv("HOME");
   config->trustAnchorCert = io::load<security::v2::Certificate>(homePath + DEFAULT_ANCHOR_CERT_PATH);
   if (config->trustAnchorCert == nullptr) {
@@ -21,7 +22,6 @@ Config::DefaultConfig()
   }
   return config;
 }
-
 
 shared_ptr<Config>
 Config::CustomizedConfig(const std::string& multicastPrefix, const std::string& producerPrefix, const std::string anchorCertPath)
@@ -37,9 +37,9 @@ Config::CustomizedConfig(const std::string& multicastPrefix, const std::string& 
 }
 
 Config::Config(const std::string& multicastPrefix, const std::string& peerPrefix)
-  : multicastPrefix(multicastPrefix)
-  , peerPrefix(peerPrefix)
+    : multicastPrefix(multicastPrefix),
+      peerPrefix(peerPrefix)
 {
 }
 
-} // namespace DLedger
+}  // namespace dledger
