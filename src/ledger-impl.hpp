@@ -33,7 +33,6 @@ public:
   bool
   hasRecord(const std::string& recordName) override;
 
-
 private:
   void
   onNack(const Interest&, const lp::Nack& nack);

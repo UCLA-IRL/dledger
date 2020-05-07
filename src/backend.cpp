@@ -36,7 +36,7 @@ Backend::getRecord(const Name& recordName)
 bool
 Backend::putRecord(const shared_ptr<Data>& recordData)
 {
-  const auto& nameStr = recordData->getName().toUri();
+  const auto& nameStr = recordData->getFullName().toUri();
   leveldb::Slice key = nameStr;
   auto recordBytes = recordData->wireEncode();
   leveldb::Slice value((const char*)recordBytes.wire(), recordBytes.size());

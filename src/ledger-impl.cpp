@@ -1,15 +1,12 @@
 #include "ledger-impl.hpp"
 
-#include <time.h> /* time */
-
 #include <algorithm>
-#include <boost/algorithm/string/classification.hpp>  // Include boost::for is_any_of
-#include <boost/algorithm/string/split.hpp>           // Include for boost::split
 #include <ndn-cxx/encoding/block-helpers.hpp>
 #include <ndn-cxx/security/signing-helpers.hpp>
 #include <ndn-cxx/security/verification-helpers.hpp>
 #include <ndn-cxx/util/sha256.hpp>
 #include <random>
+#include <sstream>
 
 using namespace ndn;
 namespace dledger {
@@ -52,39 +49,18 @@ LedgerImpl::LedgerImpl(const Config& config,
   //****STEP 3****
   // Make the genesis data
   for (int i = 0; i < DEFAULT_GENESIS_BLOCKS; i++) {
-    m_tailingRecords.push_back(ndn::Name("genesis"));
-    Name dataName = Name("genesis");
-    auto data = make_shared<Data>(dataName);
+    Name recordName("/genesis/" + std::to_string(i));
+    auto data = make_shared<Data>(recordName);
     auto contentBlock = makeEmptyBlock(tlv::Content);
     data->setContent(contentBlock);
     m_keychain.sign(*data, security::signingWithSha256());
+    m_tailingRecords.push_back(data->getFullName());
     m_backend.putRecord(data);
   }
   std::cout << "STEP 3" << std::endl
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
             << "DLedger Initialization Succeed\n\n";
 
-  // //Make an individual piece of data.
-  // m_tailingRecords.push_back(ndn::Name(m_id));
-  // std::cout << "set up tailing record pt 2 \n";
-
-  // Name dataName2 = Name(m_id);
-  // auto data2 = make_shared<Data>(dataName2);
-  // auto contentBlock2 = makeEmptyBlock(tlv::Content);
-  // data2->setContent(contentBlock2);
-
-  // // sign the packet with peer's key
-  // try {
-  //   m_keychain.sign(*data2, security::signingByIdentity(m_config.peerPrefix));
-  // }
-  // catch (const std::exception& e) {
-  //   std::cout << (e.what());
-  // }
-  // std::cout << "about to putRecord in const \n";
-
-  // m_scheduler.schedule(time::seconds(10), [&] {
-  //   this->m_backend.putRecord(data2);
-  // });
   this->sendPerodicSyncInterest();
   this->startPerodicAddRecord();
 }
@@ -96,9 +72,8 @@ LedgerImpl::~LedgerImpl()
 ReturnCode
 LedgerImpl::addRecord(Record& record)
 {
-  std::cout << "adding record \n";
+  std::cout << "[LedgerImpl::addRecord] Add new record" << std::endl;
   if (m_tailingRecords.size() <= 0) {
-    std::cout << "no tailing \n";
     return ReturnCode::noTailingRecord();
   }
   // randomly shuffle the tailing record list
@@ -108,7 +83,6 @@ LedgerImpl::addRecord(Record& record)
   std::shuffle(std::begin(m_tailingRecords), std::end(m_tailingRecords), engine);
   // fulfill the record content with preceding record IDs
   // and remove the selected preceding records from tailing record list
-  std::cout << "records shuffled \n";
   std::string contentStr = "";
   int counter = 0, iterator = 0;
   for (; counter < m_config.preceidingRecordNum && iterator < m_tailingRecords.size(); counter++) {
@@ -122,14 +96,12 @@ LedgerImpl::addRecord(Record& record)
     m_tailingRecords.erase(m_tailingRecords.begin() + iterator);
   }
   if (counter < m_config.preceidingRecordNum) {
-    std::cout << "not enough records \n";
     return ReturnCode::notEnoughTailingRecord();
   }
-  std::cout << "shuffled tailing records \n";
   // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
   // each <> represent only one component
   Name dataName = m_config.peerPrefix;
-  dataName.append(std::to_string(record.m_type)).append(record.m_uniqueIdentifier).appendTimestamp();
+  dataName.append(recordTypeToString(record.m_type)).append(record.m_uniqueIdentifier).appendTimestamp();
   auto data = make_shared<Data>(dataName);
   auto contentBlock = makeEmptyBlock(tlv::Content);
   record.wireEncode(contentBlock);
@@ -144,23 +116,22 @@ LedgerImpl::addRecord(Record& record)
   }
   record.m_data = data;
 
-  std::cout << "about to putRecord \n";
-
   // add new record into the ledger
   m_backend.putRecord(data);
 
   // send out notification: /multicastPrefix/NOTIF/record-name/<digest>
   Name intName(m_config.multicastPrefix);
   intName.append("NOTIF").append(data->getFullName().wireEncode());
-  std::cout << data->getFullName().toUri();
   Interest interest(intName);
+  interest.setCanBePrefix(false);
+  interest.setMustBeFresh(true);
   try {
     m_keychain.sign(interest, security::signingByIdentity(m_config.peerPrefix));
   }
   catch (const std::exception& e) {
     return ReturnCode::signingError(e.what());
   }
-  m_network.expressInterest(interest, nullptr, nullptr, nullptr);
+  m_network.expressInterest(interest, nullptr, bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
   return ReturnCode::noError();
 }
 
@@ -180,7 +151,6 @@ LedgerImpl::getRecord(const std::string& recordName)
 bool
 LedgerImpl::hasRecord(const std::string& recordName)
 {
-  std::cout << "hasRecord Called \n";
   auto dataPtr = m_backend.getRecord(Name(recordName));
   if (dataPtr != nullptr) {
     return true;
@@ -191,59 +161,32 @@ LedgerImpl::hasRecord(const std::string& recordName)
 void
 LedgerImpl::onNewRecordNotification(const Interest& interest)
 {
-  std::cout << "newRecordNotification Called \n";
-  //Temporary stand-in.
-  security::v2::Certificate certInLedger;
-  //put back in later
-  /*if(!security::verifySignature(interest, certInLedger)){
-    std::cout << "Signature wasn't verified in onNewRecord";
-  } else {
-    std::cout << "but not that hard ";
-    // verify the signature
-    // if (security::verifySignature(interest, TODO: certificate of the peer))
-    // extract the Record Data name from the interest
-    auto nameBlock = interest.getName().get(-1).toUri();
-    std::mt19937_64 eng{std::random_device{}()};
-    std::uniform_int_distribution<> dist{10, 100};
-    sleep(dist(eng)/100);
-    //chop off NOTIF bit
-    ndn::Name interestForRecordName;
-    interestForRecordName.wireDecode(interest.getName().get(-1).blockFromValue());
-    Interest interestForRecord(interestForRecordName);
+  std::cout << "[LedgerImpl::onNewRecordNotification] Receive Notification of a New Record" << std::endl;
 
-    std::cout << "Sending Interest " << interestForRecord << std::endl;
-    m_network.expressInterest(interestForRecord,
-                           bind(&LedgerImpl::onRequestedData, this,  _1, _2),
-                           bind(&LedgerImpl::onNack, this, _1, _2),
-                           bind(&LedgerImpl::onTimeout, this, _1));
-
-
-
-  }
-  */
-  // verify the signature
+  // TODO: verify the signature
   // if (security::verifySignature(interest, TODO: certificate of the peer))
-  // extract the Record Data name from the interest
 
   // /multicastPrefix/NOTIF/record-name/<digest>
-  auto nameBlock = interest.getName().get(m_config.multicastPrefix.size() + 1).toUri();
+  auto nameBlock = interest.getName().get(m_config.multicastPrefix.size() + 1);
+  nameBlock.parse();
+  Name recordName(nameBlock.get(tlv::Name));
+  if (hasRecord(recordName.toUri())) {
+    std::cout << "- The record is already in the local DLedger. Ignore" << std::endl;
+    return;
+  }
+  std::cout << "- The record is not seen before. Fetch it back" << std::endl
+            << "-- " << recordName.toUri() << std::endl;
   std::mt19937_64 eng{std::random_device{}()};
   std::uniform_int_distribution<> dist{10, 100};
-  sleep(dist(eng) / 100);
-  //chop off NOTIF bit
-  ndn::Name interestForRecordName(nameBlock);
-  std::cout << "did i get interest name? \n";
-  std::cout << interestForRecordName.toUri();
-  std::cout << "\n";
-  Interest interestForRecord(interestForRecordName);
-
-  std::cout << "Sending Interest " << interestForRecord << std::endl;
-  m_network.expressInterest(interestForRecord,
-                            bind(&LedgerImpl::onRequestedData, this, _1, _2),
-                            bind(&LedgerImpl::onNack, this, _1, _2),
-                            bind(&LedgerImpl::onTimeout, this, _1));
-
-  // a random timer and then fetch it back
+  m_scheduler.schedule(time::milliseconds(dist(eng)), [&, recordName] {
+    Interest recordInterest(recordName);
+    recordInterest.setCanBePrefix(false);
+    recordInterest.setMustBeFresh(true);
+    m_network.expressInterest(recordInterest,
+                              bind(&LedgerImpl::onRequestedData, this, _1, _2),
+                              bind(&LedgerImpl::onNack, this, _1, _2),
+                              bind(&LedgerImpl::onTimeout, this, _1));
+  });
 }
 
 void
@@ -267,12 +210,12 @@ LedgerImpl::sendPerodicSyncInterest()
   Name syncInterestName = m_config.multicastPrefix;
   syncInterestName.append("SYNC");
   Interest syncInterest(syncInterestName);
-  std::string appParameters = "";
+  Block appParam = makeEmptyBlock(tlv::ApplicationParameters);
   for (const auto& item : m_tailingRecords) {
-    appParameters += item.toUri();
-    appParameters += "\n";
+    appParam.push_back(item.wireEncode());
   }
-  syncInterest.setApplicationParameters((uint8_t*)appParameters.c_str(), appParameters.size());
+  appParam.parse();
+  syncInterest.setApplicationParameters(appParam);
   syncInterest.setCanBePrefix(false);
   syncInterest.setMustBeFresh(true);
   m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
@@ -356,39 +299,27 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
 void
 LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 {
-  std::cout << "onLedgerSync Called \n";
-  // Context: you received a Interest packet which contains a list of tailing records
-  const auto& tailFromParam = encoding::readString(interest.getApplicationParameters());
-  std::cout << "decoding worked \n";
-  //Okay, so we can turn it into a string -- now we need to take that string, separate it into a bunch of strings (demarcated by \n))
-  //then for each one of those, check if we have it in our tailing records, if we do, good. if not, go search for it and all further records
-  //How to get: Use record.getPointersFromHeader to get back a list of names.
-  //how to make it fully recursive, though? and need to ensure that all preceeding records valid, otherwise you get rid of it...
-  std::vector<std::string> receivedTail;
-  boost::split(receivedTail, tailFromParam, boost::is_any_of("\n"), boost::token_compress_on);
-  std::vector<ndn::Name> namedReceivedTail;
-  //First, make them NDN names
-  std::cout << "List of received names \n";
-  for (int i = 0; i < receivedTail.size(); i++) {
-    std::cout << receivedTail[i] << "\n";
-    namedReceivedTail.push_back(ndn::Name(receivedTail[i]));
-  }
-  //Check if they're in our tailing records. If they aren't, check if they're in the database. If they aren't, put them in an unverified list.
-  for (int i = 0; i < receivedTail.size(); i++) {
-    if (std::find(m_tailingRecords.begin(), m_tailingRecords.end(), receivedTail[i]) != m_tailingRecords.end()) {
-      std::cout << "This record is already in our tailing records \n";
+  std::cout << "[LedgerImpl::onLedgerSyncRequest] Receive SYNC Interest" << std::endl;
+  const auto& appParam = interest.getApplicationParameters();
+  appParam.parse();
+  std::cout << "- Received Tailing Record Names: \n";
+  for (const auto& item : appParam.elements()) {
+    Name recordName(item);
+    std::cout << "-- " << recordName.toUri() << "\n";
+    // Check if they're in our tailing records.
+    // If they aren't, check if they're in the database.
+    // If they aren't, put them in an unverified list.
+    if (std::find(m_tailingRecords.begin(), m_tailingRecords.end(), recordName) != m_tailingRecords.end()) {
+      std::cout << "--- This record is already in our tailing records \n";
     }
-    else if (m_backend.getRecord(receivedTail[i])) {
-      std::cout << "we actually already have this record in the ledger \n";
+    else if (m_backend.getRecord(recordName)) {
+      std::cout << "--- This record is already in our Ledger but not tailing any more \n";
     }
     else {
-      ndn::Name interestForRecordName;
-      interestForRecordName = m_config.multicastPrefix;
-      interestForRecordName.append(Name(receivedTail[i]));
-      Interest interestForRecord(interestForRecordName);
-      interestForRecord.setCanBePrefix(1);
-      interestForRecord.setMustBeFresh(1);
-      std::cout << "Sending Interest in onsync " << interestForRecord.getName().toUri() << std::endl;
+      Interest interestForRecord(recordName);
+      interestForRecord.setCanBePrefix(false);
+      interestForRecord.setMustBeFresh(true);
+      std::cout << "--- Sending Record Fetching Interest " << interestForRecord.getName().toUri() << std::endl;
       m_network.expressInterest(interestForRecord,
                                 bind(&LedgerImpl::onRequestedData, this, _1, _2),
                                 bind(&LedgerImpl::onNack, this, _1, _2),
@@ -410,32 +341,17 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 void
 LedgerImpl::onRecordRequest(const Interest& interest)
 {
-  std::cout << "onRecordRequest Called \n";
-  std::cout << "on record request interest name " << interest.getName().toUri() << "\n";
-  // Context: you received an Interest asking for a record
-  ndn::Name recordName;
-  try {
-    recordName.wireDecode(interest.getName().get(-1).blockFromValue());
+  std::cout << "[LedgerImpl::onRecordRequest] Recieve Interest to Fetch Record" << std::endl;
+  auto desiredData = m_backend.getRecord(interest.getName().toUri());
+  if (desiredData) {
+    std::cout << "- Found desired Data, reply it." << std::endl;
+    m_network.put(*desiredData);
   }
-  catch (const std::exception& e) {
-    std::cerr << e.what();
-  }
-
-  auto dataPtr = m_backend.getRecord(recordName);
-  if (dataPtr) {
-    m_network.put(*dataPtr);
-  }
-  else {
-    //do nothing
-  }
-  // check whether you have it, if yes, reply
-  // if not, drop it
 }
 
 std::unique_ptr<Ledger>
 Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& face, std::string id)
 {
-  std::cout << "ledger init \n";
   return std::make_unique<LedgerImpl>(config, keychain, face, id);
 }
 
