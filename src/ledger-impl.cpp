@@ -85,6 +85,7 @@ LedgerImpl::addRecord(Record& record)
   // and remove the selected preceding records from tailing record list
   std::string contentStr = "";
   int counter = 0, iterator = 0;
+  auto tailingRecordsCopy = m_tailingRecords;
   for (; counter < m_config.preceidingRecordNum && iterator < m_tailingRecords.size(); counter++) {
     const auto& recordId = m_tailingRecords[iterator];
     if (m_config.peerPrefix.isPrefixOf(recordId)) {
@@ -96,6 +97,7 @@ LedgerImpl::addRecord(Record& record)
     m_tailingRecords.erase(m_tailingRecords.begin() + iterator);
   }
   if (counter < m_config.preceidingRecordNum) {
+    m_tailingRecords = tailingRecordsCopy;
     return ReturnCode::notEnoughTailingRecord();
   }
   // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
@@ -112,12 +114,10 @@ LedgerImpl::addRecord(Record& record)
     m_keychain.sign(*data, security::signingByIdentity(m_config.peerPrefix));
   }
   catch (const std::exception& e) {
+    m_tailingRecords = tailingRecordsCopy;
     return ReturnCode::signingError(e.what());
   }
   record.m_data = data;
-
-  // add new record into the ledger
-  m_backend.putRecord(data);
 
   // send out notification: /multicastPrefix/NOTIF/record-name/<digest>
   Name intName(m_config.multicastPrefix);
@@ -129,9 +129,13 @@ LedgerImpl::addRecord(Record& record)
     m_keychain.sign(interest, security::signingByIdentity(m_config.peerPrefix));
   }
   catch (const std::exception& e) {
+    m_tailingRecords = tailingRecordsCopy;
     return ReturnCode::signingError(e.what());
   }
   m_network.expressInterest(interest, nullptr, bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
+
+  // add new record into the ledger
+  m_backend.putRecord(data);
   return ReturnCode::noError();
 }
 
@@ -234,7 +238,10 @@ LedgerImpl::startPerodicAddRecord()
   record.addRecordItem(std::to_string(std::rand()));
   record.addRecordItem(std::to_string(std::rand()));
   record.addRecordItem(std::to_string(std::rand()));
-  addRecord(record);
+  ReturnCode result = addRecord(record);
+  if (!result.success()) {
+    std::cout << "- Adding record error : " << result.what() << std::endl;
+  }
 
   // schedule for the next SyncInterest Sending
   m_scheduler.schedule(time::seconds(10), [this] { startPerodicAddRecord(); });
