@@ -23,8 +23,6 @@ Backend::getRecord(const Name& recordName)
   std::string value;
   leveldb::Status s = m_db->Get(leveldb::ReadOptions(), key, &value);
   if (false == s.ok()) {
-    std::cerr << "Unable to get value from database, key: " << nameStr << std::endl;
-    std::cerr << s.ToString() << std::endl;
     return nullptr;
   }
   else {
@@ -42,8 +40,6 @@ Backend::putRecord(const shared_ptr<Data>& recordData)
   leveldb::Slice value((const char*)recordBytes.wire(), recordBytes.size());
   leveldb::Status s = m_db->Put(leveldb::WriteOptions(), key, value);
   if (false == s.ok()) {
-    std::cerr << "Unable to get value from database, key: " << nameStr << std::endl;
-    std::cerr << s.ToString() << std::endl;
     return false;
   }
   return true;
