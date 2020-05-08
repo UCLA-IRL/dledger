@@ -18,121 +18,6 @@ enum RecordType {
 };
 
 /**
- * The header of a record.
- * The header is composed of a list of names, called pointers, each of which references to a preceding record.
- * The record header is carried in NDN Data Content.
- */
-class RecordHeader
-{
-public:
-  RecordHeader() = default;
-  RecordHeader(std::list<Name> recordPointers);
-
-  /**
-   * Encode the record header into the block.
-   * @note this function should be called before the wireEncode of the record body.
-   * @p block, output, the Data Content block to carry the encoded header.
-   */
-  void
-  wireEncode(Block& block) const;
-
-  /**
-   * Decode the record header from the Data Content.
-   * @p dataContent, intput, the Data Content block carrying the encoded header.
-   * @return a list of NDN full names, each of which is represents a preceding record that referenced by the current record.
-   */
-  const std::list<Name>&
-  wireDecode(const Block& dataContent);
-
-  /**
-   * Add a new pointer to the record header.
-   * @p pointer, intput, the full name of a preceding record.
-   */
-  void
-  addPointer(const Name& pointer) {
-    m_recordPointers.push_back(pointer);
-  };
-
-  /**
-   * Check whether the record header is empty or not.
-   */
-  bool
-  isEmpty() const {
-    return m_recordPointers.size() == 0;
-  }
-
-private:
-  /**
-   * The TLV type of the record header in the NDN Data Content.
-   */
-  const static uint8_t T_RecordHeader = 129;
-  /**
-   * The list of pointers to preceding records.
-   */
-  std::list<Name> m_recordPointers;
-};
-
-
-/**
- * The body of a record.
- * The body is composed of a list of strings, each of which carries a piece of payload of the record.
- * The record body is carried in NDN Data Content.
- */
-class RecordBody
-{
-public:
-  RecordBody() = default;
-  RecordBody(std::list<std::string> contentItems);
-
-  /**
-   * Encode the record body into the block.
-   * @note this function should be called after the wireEncode of the record header.
-   * @p block, output, the Data Content block to carry the encoded body.
-   */
-  void
-  wireEncode(Block& block) const;
-
-  /**
-   * Decode the record body from the Data Content.
-   * @p dataContent, intput, the Data Content block carrying the encoded body.
-   * @return a list of record body items, each of which carries a piece of record payload.
-   */
-  const std::list<std::string>&
-  wireDecode(const Block& dataContent);
-
-  /**
-   * Add a new record body item to the record header.
-   * @p contentItem, intput, an item of record payload.
-   */
-  void
-  addContentItem(const std::string& contentItem) {
-    m_contentItems.push_back(contentItem);
-  };
-
-  /**
-   * Check whether the record body is empty or not.
-   */
-  bool
-  isEmpty() const {
-    return m_contentItems.size() == 0;
-  }
-
-private:
-  /**
-   * The TLV type of the record body in the NDN Data Content.
-   */
-  const static uint8_t T_RecordContent = 130;
-  /**
-   * The TLV type of each item in the record body in the NDN Data Content.
-   */
-  const static uint8_t T_ContentItem = 131;
-  /**
-   * The data structure to carry the record body payload.
-   */
-  std::list<std::string> m_contentItems;
-};
-
-/**
  * The record.
  * Record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-identifier>/<timestamp>
  */
@@ -152,9 +37,7 @@ public:
    * @p recordItem, input, the record payload to add.
    */
   void
-  addRecordItem(const std::string& recordItem) {
-    m_content.addContentItem(recordItem);
-  };
+  addRecordItem(const std::string& recordItem);
 
   /**
    * Get the NDN Data full name of the record.
@@ -185,9 +68,7 @@ public:
    * Check whether the record body is empty or not.
    */
   bool
-  isEmpty() const {
-    return m_data == nullptr && m_header.isEmpty() && m_content.isEmpty();
-  };
+  isEmpty() const;
 
 private:
   /**
@@ -212,26 +93,56 @@ private:
    * @note This function is supposed to be used by the DLedger class only
    */
   void
-  addPointer(const Name& pointer) {
-    m_header.addPointer(pointer);
-  };
+  addPointer(const Name& pointer);
 
   /**
    * Encode the record header and body into the block.
    * @p block, output, the Data Content block to carry the encoded record.
    */
   void
-  wireEncode(Block& block) const {
-    m_header.wireEncode(block);
-    m_content.wireEncode(block);
-  };
+  wireEncode(Block& block) const;
+
+private:
+  void
+  headerWireEncode(Block& block) const;
+
+  void
+  bodyWireEncode(Block& block) const;
+
+  void
+  headerWireDecode(const Block& dataContent);
+
+  void
+  bodyWireDecode(const Block& dataContent);
 
 private:
   RecordType m_type;
   std::string m_uniqueIdentifier;
   std::shared_ptr<const Data> m_data;
-  RecordHeader m_header;
-  RecordBody m_content;
+
+  /**
+   * The TLV type of the record header in the NDN Data Content.
+   */
+  const static uint8_t T_RecordHeader = 129;
+  /**
+   * The TLV type of the record body in the NDN Data Content.
+   */
+  const static uint8_t T_RecordContent = 130;
+  /**
+   * The TLV type of each item in the record body in the NDN Data Content.
+   */
+  const static uint8_t T_ContentItem = 131;
+  /**
+   * The list of pointers to preceding records.
+   */
+  std::list<Name> m_recordPointers;
+  /**
+   * The data structure to carry the record body payload.
+   */
+  std::list<std::string> m_contentItems;
+
+  // std::unique_ptr<RecordHeader> m_header;
+  // std::unique_ptr<RecordBody> m_content;
   // std::vector<std::string> m_precedingRecords;
   // std::set<std::string> m_approvers;
   friend class LedgerImpl;
@@ -254,6 +165,34 @@ public:
   const std::list<security::v2::Certificate>&
   getCertificates() const;
 };
+
+inline std::string
+recordTypeToString(const RecordType& type)
+{
+  switch (type)
+  {
+  case RecordType::GenericRecord:
+    return "Generic";
+
+  case RecordType::CertificateRecord:
+    return "Cert";
+
+  case RecordType::RevocationRecord:
+    return "Revocation";
+
+  default:
+    return "Undefined";
+  }
+}
+
+inline RecordType
+stringToRecordType(const std::string& type)
+{
+  if (type == "Generic") return RecordType::GenericRecord;
+  else if (type == "Cert") return RecordType::CertificateRecord;
+  else if (type == "Revocation") return RecordType::RevocationRecord;
+  else return RecordType::BaseRecord;
+}
 
 } // namespace dledger
 

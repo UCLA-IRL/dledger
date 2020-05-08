@@ -11,6 +11,7 @@
 #include <ndn-cxx/util/scheduler.hpp>
 #include <boost/asio/io_service.hpp>
 #include <ndn-cxx/util/io.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
 
 
 using namespace ndn;
@@ -24,14 +25,13 @@ public:
   ~LedgerImpl() override;
 
   ReturnCode
-  addRecord(Record& record, const Name& signerIdentity) override;
+  addRecord(Record& record) override;
 
   optional<Record>
   getRecord(const std::string& recordName) override;
 
   bool
   hasRecord(const std::string& recordName) override;
-
 
 private:
   void
@@ -44,6 +44,9 @@ private:
   // should be invoked periodically or on solicit request
   void
   sendPerodicSyncInterest();
+
+  void
+  startPerodicAddRecord();
 
   bool
   checkValidityOfRecord(const Data& data);
@@ -71,13 +74,12 @@ private:
   bool
   check_record_function(const Data& data);
 
-  std::string
-  random_string(size_t length);
 private:
   Config m_config;
   security::KeyChain& m_keychain;
   Face& m_network;
   std::string m_id;
+  Scheduler m_scheduler;
 
 
   std::vector<Name> m_neededRecords;

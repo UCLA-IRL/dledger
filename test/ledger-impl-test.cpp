@@ -33,67 +33,48 @@ testGenData(std::string signerId)
  //a Face
  //this makes a ledgerImpl, then have it produce data, send out sync requests periodically
  //that's really it
-  Face face;
-  security::KeyChain keychain;
-
-  static const std::string DEFAULT_ANCHOR_CERT_PATH = "/dledger/dledger-anchor.cert";
-  static const std::string DEFAULT_MULTICAST_PREFIX = "/dledger-multicast";
-  static const std::string DEFAULT_PEER_PREFIX = "/dledger";
-
-  std::shared_ptr<Config> config = nullptr;
-  try {
-    config = Config::CustomizedConfig(DEFAULT_MULTICAST_PREFIX, DEFAULT_PEER_PREFIX, "~/");
-  }
-  catch(const std::exception& e) {
-    std::cout << e.what() << std::endl;
-    return 1;
-  }
-  std::cout << "config declaration works \n";
 
 
-  auto ledger = Ledger::initLedger(*config, keychain, face, signerId);
-  //construct a record
-  std::cout << "initialization of ledger worked \n";
-  std::cout << "processing events \n";
-  face.processEvents();
-  return true;
-}
-
-void
-run(){
-
-}
-
-bool
-testSyncInterest()
-{
-  std::string name1 = "name1";
-  ndn::Name name2("/dledger/name1/123");
-  if (name2.get(-2).toUri() == name1) {
-    return true;
-  }
-  return false;
+  // auto ledger = Ledger::initLedger(*config, keychain, face, signerId);
+  // //construct a record
+  // std::cout << "initialization of ledger worked \n";
+  // std::cout << "processing events \n";
+  // face.processEvents();
+  // return true;
 }
 
 int
 main(int argc, char** argv)
 {
-  //do -n and then the name
-  std::string idName = argv[2];
-  std::cout << "ledger impl running \n";
-  auto success = testGenData(idName);
-  if (!success) {
-    std::cout << "ledgerimp generate data failed" << std::endl;
+  std::string idName = argv[1];
+  boost::asio::io_service ioService;
+  Face face(ioService);
+  security::KeyChain keychain;
+  std::shared_ptr<Config> config = nullptr;
+  try {
+    config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName, "dledger-anchor.cert");
   }
-  else {
-    std::cout << "ledgerimp ex with no errors" << std::endl;
+  catch(const std::exception& e) {
+    std::cout << e.what() << std::endl;
+    return 1;
   }
-  success = testSyncInterest();
-  if (!success) {
-    std::cout << "ledgerimp generate syncinterest failed" << std::endl;
-  }
-  else {
-    std::cout << "syncint with no errors" << std::endl;
-  }
+
+  auto ledger = Ledger::initLedger(*config, keychain, face, idName);
+
+  // auto success = testGenData(idName);
+  // if (!success) {
+  //   std::cout << "ledgerimp generate data failed" << std::endl;
+  // }
+  // else {
+  //   std::cout << "ledgerimp ex with no errors" << std::endl;
+  // }
+  // success = testSyncInterest();
+  // if (!success) {
+  //   std::cout << "ledgerimp generate syncinterest failed" << std::endl;
+  // }
+  // else {
+  //   std::cout << "syncint with no errors" << std::endl;
+  // }
+  face.processEvents();
   return 0;
 }

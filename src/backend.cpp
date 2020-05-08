@@ -1,12 +1,13 @@
 #include "backend.hpp"
-#include <iostream>
+
 #include <cassert>
+#include <iostream>
 
 namespace dledger {
 
-Backend::Backend()
+Backend::Backend(const std::string& dbDir)
 {
-  this->initDatabase("/tmp/dledger-db");
+  this->initDatabase(dbDir);
 }
 
 Backend::~Backend()
@@ -22,8 +23,6 @@ Backend::getRecord(const Name& recordName)
   std::string value;
   leveldb::Status s = m_db->Get(leveldb::ReadOptions(), key, &value);
   if (false == s.ok()) {
-    std::cerr << "Unable to get value from database, key: " << nameStr << std::endl;
-    std::cerr << s.ToString() << std::endl;
     return nullptr;
   }
   else {
@@ -35,14 +34,12 @@ Backend::getRecord(const Name& recordName)
 bool
 Backend::putRecord(const shared_ptr<Data>& recordData)
 {
-  const auto& nameStr = recordData->getName().toUri();
+  const auto& nameStr = recordData->getFullName().toUri();
   leveldb::Slice key = nameStr;
   auto recordBytes = recordData->wireEncode();
   leveldb::Slice value((const char*)recordBytes.wire(), recordBytes.size());
   leveldb::Status s = m_db->Put(leveldb::WriteOptions(), key, value);
   if (false == s.ok()) {
-    std::cerr << "Unable to get value from database, key: " << nameStr << std::endl;
-    std::cerr << s.ToString() << std::endl;
     return false;
   }
   return true;
@@ -72,4 +69,4 @@ Backend::initDatabase(const std::string& dbDir)
   }
 }
 
-} // namespace dledger
+}  // namespace dledger
