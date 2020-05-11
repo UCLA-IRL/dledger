@@ -41,7 +41,7 @@ LedgerImpl::LedgerImpl(const Config& config,
   m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2), nullptr, nullptr);
   m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2), nullptr, nullptr);
   std::cout << "STEP 2" << std::endl
-            << "- Prefixes " << m_config.multicastPrefix.toUri() << ","
+            << "- Prefixes " << m_config.peerPrefix.toUri() << ","
             << syncName.toUri() << ","
             << notifName.toUri()
             << " have been registered." << std::endl;
@@ -108,6 +108,7 @@ LedgerImpl::addRecord(Record& record)
   auto contentBlock = makeEmptyBlock(tlv::Content);
   record.wireEncode(contentBlock);
   data->setContent(contentBlock);
+  data->setFreshnessPeriod(time::minutes(5));
 
   // sign the packet with peer's key
   try {
@@ -298,7 +299,7 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
     std::time_t present = std::time(0);
     m_rateCheck[producedBy] = present;
     m_backend.putRecord((make_shared<Data>(data)));
-    m_tailingRecords.push_back(data.getName().get(-2).toUri());
+    m_tailingRecords.push_back(data.getFullName());
   }
   // maybe a static function outside this fun but in the same cpp file
   // checkValidityOfRecord
