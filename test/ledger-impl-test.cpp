@@ -52,7 +52,7 @@ main(int argc, char** argv)
   security::KeyChain keychain;
   std::shared_ptr<Config> config = nullptr;
   try {
-    config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName, "dledger-anchor.cert");
+    config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName,std::getenv("HOME") + std::string("/dledger/dledger-anchor.cert"));
   }
   catch(const std::exception& e) {
     std::cout << e.what() << std::endl;
