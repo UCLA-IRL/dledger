@@ -289,7 +289,7 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
   // Context: this peer sent a Interest to ask for a Data
   // this function is to handle the replied Data.
   if (!checkValidityOfRecord(data)) {
-    std::cout << "Requested data malformed \n";
+    std::cout << "Requested data is not valid \n";
     return;
   }
   else {
