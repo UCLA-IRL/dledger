@@ -94,7 +94,7 @@ LedgerImpl::addRecord(Record& record)
       continue;
     }
     record.addPointer(recordId);
-    m_tailingRecords.erase(m_tailingRecords.begin() + iterator);
+    //m_tailingRecords.erase(m_tailingRecords.begin() + iterator);
   }
   if (counter < m_config.preceidingRecordNum) {
     m_tailingRecords = tailingRecordsCopy;
@@ -298,6 +298,7 @@ LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
     std::time_t present = std::time(0);
     m_rateCheck[producedBy] = present;
     m_backend.putRecord((make_shared<Data>(data)));
+    m_tailingRecords.push_back(data.getName().get(-2).toUri());
   }
   // maybe a static function outside this fun but in the same cpp file
   // checkValidityOfRecord
