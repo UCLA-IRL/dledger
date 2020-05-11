@@ -61,8 +61,8 @@ LedgerImpl::LedgerImpl(const Config& config,
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
             << "DLedger Initialization Succeed\n\n";
 
-  this->sendPerodicSyncInterest();
-  this->startPerodicAddRecord();
+    this->sendPeriodicSyncInterest();
+    this->startPeriodicAddRecord();
 }
 
 LedgerImpl::~LedgerImpl()
@@ -206,9 +206,9 @@ LedgerImpl::onTimeout(const Interest& interest)
 }
 
 void
-LedgerImpl::sendPerodicSyncInterest()
+LedgerImpl::sendPeriodicSyncInterest()
 {
-  std::cout << "[LedgerImpl::sendPerodicSyncInterest] Send SYNC Interest.\n";
+  std::cout << "[LedgerImpl::sendPeriodicSyncInterest] Send SYNC Interest.\n";
 
   // construct SYNC Interest
   Name syncInterestName = m_config.multicastPrefix;
@@ -224,15 +224,15 @@ LedgerImpl::sendPerodicSyncInterest()
   syncInterest.setMustBeFresh(true);
   m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
   // nullptrs for data and timeout callbacks because a sync Interest is not expecting a Data back
-  m_network.expressInterest(syncInterest.setMustBeFresh(1), nullptr,
+  m_network.expressInterest(syncInterest, nullptr,
                             bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
 
   // schedule for the next SyncInterest Sending
-  m_scheduler.schedule(time::seconds(5), [this] { sendPerodicSyncInterest(); });
+  m_scheduler.schedule(time::seconds(5), [this] { sendPeriodicSyncInterest(); });
 }
 
 void
-LedgerImpl::startPerodicAddRecord()
+LedgerImpl::startPeriodicAddRecord()
 {
   Record record(RecordType::GenericRecord, std::to_string(std::rand()));
   record.addRecordItem(std::to_string(std::rand()));
@@ -244,7 +244,7 @@ LedgerImpl::startPerodicAddRecord()
   }
 
   // schedule for the next SyncInterest Sending
-  m_scheduler.schedule(time::seconds(10), [this] { startPerodicAddRecord(); });
+  m_scheduler.schedule(time::seconds(10), [this] { startPeriodicAddRecord(); });
 }
 
 bool

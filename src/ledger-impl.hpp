@@ -43,10 +43,10 @@ private:
   // the function to generate a sync Interest and send it out
   // should be invoked periodically or on solicit request
   void
-  sendPerodicSyncInterest();
+  sendPeriodicSyncInterest();
 
   void
-  startPerodicAddRecord();
+  startPeriodicAddRecord();
 
   bool
   checkValidityOfRecord(const Data& data);
