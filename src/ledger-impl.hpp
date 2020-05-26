@@ -58,7 +58,7 @@ private:
   onNewRecordNotification(const Interest& interest);
 
   void
-  onRequestedData(const Interest& interest, const Data& data);
+  onRequestedData(const Interest& interest, const Data& data, int vectIndex = -1, bool isFirst = true);
 
   // Interet format:
   // /<multicast_prefix>/SYNC
@@ -81,7 +81,7 @@ private:
   std::string m_id;
   Scheduler m_scheduler;
 
-
+  std::vector<std::vector<Record>> m_waitingLists;
   std::vector<Name> m_neededRecords;
   ndn::Name m_producerId;
   std::map<std::string, std::time_t> m_rateCheck;
