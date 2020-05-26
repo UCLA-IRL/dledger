@@ -18,7 +18,7 @@ public:
   getRecord(const Name& recordName);
 
   bool
-  putRecord(const shared_ptr<Data>& recordData);
+  putRecord(const shared_ptr<const Data>& recordData);
 
   void
   deleteRecord(const Name& recordName);

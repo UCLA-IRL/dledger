@@ -25,7 +25,7 @@ public:
   /**
    * The number of preceding records that referenced by a later record.
    */
-  int preceidingRecordNum = 1;
+  int preceidingRecordNum = 2;
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */

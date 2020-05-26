@@ -12,6 +12,7 @@
 #include <boost/asio/io_service.hpp>
 #include <ndn-cxx/util/io.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
+#include <stack>
 
 
 using namespace ndn;
@@ -25,7 +26,7 @@ public:
   ~LedgerImpl() override;
 
   ReturnCode
-  addRecord(Record& record) override;
+  createRecord(Record& record) override;
 
   optional<Record>
   getRecord(const std::string& recordName) override;
@@ -57,9 +58,6 @@ private:
   void
   onNewRecordNotification(const Interest& interest);
 
-  void
-  onRequestedData(const Interest& interest, const Data& data);
-
   // Interet format:
   // /<multicast_prefix>/SYNC
   // Parameters: A list of tailing record names
@@ -74,6 +72,14 @@ private:
   bool
   check_record_function(const Data& data);
 
+  // Zhiyi's temp function
+  void
+  fetchRecord(const Name& dataName);
+  void
+  onFetchedRecord(const Interest& interest, const Data& data);
+  void
+  addToTailingRecord(const Record& record);
+
 private:
   Config m_config;
   security::KeyChain& m_keychain;
@@ -84,10 +90,13 @@ private:
 
   std::vector<Name> m_neededRecords;
   ndn::Name m_producerId;
-  std::map<std::string, std::time_t> m_rateCheck;
+  std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
   std::vector<Name> m_tailingRecords;
   std::map<Name, Name> m_peerCertificates; // first: name of the peer, second: name of the certificate record
   Backend m_backend;
+
+  // Zhiyi's temp member variable
+  std::list<Record> m_syncStack;
 };
 
 // class Ledger

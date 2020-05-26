@@ -23,7 +23,9 @@ enum RecordType {
  */
 class Record
 {
-public:
+public: // used for preparing a new record before appending it into the DLedger
+  Record() = default;
+
   /**
    * Construct a new record.
    * @p type, input, the type of the record.
@@ -70,7 +72,7 @@ public:
   bool
   isEmpty() const;
 
-private:
+public: // used for generating a new record before appending it into the DLedger
   /**
    * @note This constructor is supposed to be used by the LedgerImpl class only
    */
@@ -102,6 +104,18 @@ private:
   void
   wireEncode(Block& block) const;
 
+  std::string
+  getProducerID() const;
+
+  time::system_clock::TimePoint
+  getGenerationTimestamp() const;
+
+  /**
+   * Data packet with name
+   * /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
+   */
+  std::shared_ptr<const Data> m_data;
+
 private:
   void
   headerWireEncode(Block& block) const;
@@ -116,10 +130,6 @@ private:
   bodyWireDecode(const Block& dataContent);
 
 private:
-  RecordType m_type;
-  std::string m_uniqueIdentifier;
-  std::shared_ptr<const Data> m_data;
-
   /**
    * The TLV type of the record header in the NDN Data Content.
    */
@@ -132,6 +142,18 @@ private:
    * The TLV type of each item in the record body in the NDN Data Content.
    */
   const static uint8_t T_ContentItem = 131;
+
+private:
+  /**
+   * The record-type in
+   * /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
+   */
+  RecordType m_type;
+  /**
+   * The record-name in
+   * /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
+   */
+  std::string m_uniqueIdentifier;
   /**
    * The list of pointers to preceding records.
    */
@@ -141,10 +163,7 @@ private:
    */
   std::list<std::string> m_contentItems;
 
-  // std::unique_ptr<RecordHeader> m_header;
-  // std::unique_ptr<RecordBody> m_content;
-  // std::vector<std::string> m_precedingRecords;
-  // std::set<std::string> m_approvers;
+
   friend class LedgerImpl;
 };
 

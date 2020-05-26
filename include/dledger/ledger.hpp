@@ -29,10 +29,10 @@ public:
 
   /**
    * Create a new record to the Dledger.
-   * @p record, input, the record instance which contains the record payload
+   * @p record, input, a record instance which contains the record payload
    */
   virtual ReturnCode
-  addRecord(Record& record) = 0;
+  createRecord(Record& record) = 0;
 
   /**
    * Get an existing record from the Dledger.

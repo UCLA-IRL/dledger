@@ -5,23 +5,35 @@
 #include <ndn-cxx/security/signing-helpers.hpp>
 #include <ndn-cxx/security/verification-helpers.hpp>
 #include <ndn-cxx/util/sha256.hpp>
+#include <ndn-cxx/util/time.hpp>
 #include <random>
 #include <sstream>
 
 using namespace ndn;
 namespace dledger {
 
-const static size_t DEFAULT_GENESIS_BLOCKS = 3;
+const static size_t DEFAULT_GENESIS_BLOCKS = 10;
+const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds(1);
+
+void
+dumpList(const std::vector<Name>& list)
+{
+  std::cout << "Dump Tailing Records" << std::endl;
+  for (const auto& item : list) {
+    std::cout << item.toUri() << std::endl;
+  }
+  std::cout << std::endl << std::endl;
+}
 
 LedgerImpl::LedgerImpl(const Config& config,
                        security::KeyChain& keychain,
                        Face& network, std::string id)
-    : Ledger(),
-      m_config(config),
-      m_keychain(keychain),
-      m_network(network),
-      m_id(id),
-      m_scheduler(network.getIoService())
+    : Ledger()
+    , m_config(config)
+    , m_keychain(keychain)
+    , m_network(network)
+    , m_id(id)
+    , m_scheduler(network.getIoService())
 {
   std::cout << "\nDLedger Initialization Start" << std::endl;
   //****STEP 1****
@@ -61,8 +73,8 @@ LedgerImpl::LedgerImpl(const Config& config,
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
             << "DLedger Initialization Succeed\n\n";
 
-    this->sendPeriodicSyncInterest();
-    this->startPeriodicAddRecord();
+  this->sendPeriodicSyncInterest();
+  this->startPeriodicAddRecord();
 }
 
 LedgerImpl::~LedgerImpl()
@@ -70,7 +82,7 @@ LedgerImpl::~LedgerImpl()
 }
 
 ReturnCode
-LedgerImpl::addRecord(Record& record)
+LedgerImpl::createRecord(Record& record)
 {
   std::cout << "[LedgerImpl::addRecord] Add new record" << std::endl;
   if (m_tailingRecords.size() <= 0) {
@@ -86,6 +98,7 @@ LedgerImpl::addRecord(Record& record)
   std::string contentStr = "";
   int counter = 0, iterator = 0;
   auto tailingRecordsCopy = m_tailingRecords;
+  dumpList(m_tailingRecords);
   for (; counter < m_config.preceidingRecordNum && iterator < m_tailingRecords.size(); counter++) {
     const auto& recordId = m_tailingRecords[iterator];
     if (m_config.peerPrefix.isPrefixOf(recordId)) {
@@ -94,13 +107,13 @@ LedgerImpl::addRecord(Record& record)
       continue;
     }
     record.addPointer(recordId);
-    //m_tailingRecords.erase(m_tailingRecords.begin() + iterator);
+    m_tailingRecords.erase(m_tailingRecords.begin() + iterator);
   }
   if (counter < m_config.preceidingRecordNum) {
     m_tailingRecords = tailingRecordsCopy;
     return ReturnCode::notEnoughTailingRecord();
   }
-  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
+  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
   // each <> represent only one component
   Name dataName = m_config.peerPrefix;
   dataName.append(recordTypeToString(record.m_type)).append(record.m_uniqueIdentifier).appendTimestamp();
@@ -119,6 +132,8 @@ LedgerImpl::addRecord(Record& record)
     return ReturnCode::signingError(e.what());
   }
   record.m_data = data;
+  std::cout << "- Finished the generation of the new record:" << std::endl
+            << "Name: " << data->getFullName().toUri() << std::endl;
 
   // send out notification: /multicastPrefix/NOTIF/record-name/<digest>
   Name intName(m_config.multicastPrefix);
@@ -137,6 +152,7 @@ LedgerImpl::addRecord(Record& record)
 
   // add new record into the ledger
   m_backend.putRecord(data);
+  addToTailingRecord(record);
   return ReturnCode::noError();
 }
 
@@ -168,13 +184,16 @@ LedgerImpl::onNewRecordNotification(const Interest& interest)
 {
   std::cout << "[LedgerImpl::onNewRecordNotification] Receive Notification of a New Record" << std::endl;
 
-  // TODO: verify the signature
+  // @TODO: verify the signature
   // if (security::verifySignature(interest, TODO: certificate of the peer))
 
   // /multicastPrefix/NOTIF/record-name/<digest>
-  auto nameBlock = interest.getName().get(m_config.multicastPrefix.size() + 1);
-  nameBlock.parse();
-  Name recordName(nameBlock.get(tlv::Name));
+  auto nameBlock = interest.getName().get(m_config.multicastPrefix.size() + 1).blockFromValue();
+  Name recordName(nameBlock);
+  if (m_config.peerPrefix.isPrefixOf(recordName)) {
+    std::cout << "- The notification was sent by myself. Ignore" << std::endl;
+    return;
+  }
   if (hasRecord(recordName.toUri())) {
     std::cout << "- The record is already in the local DLedger. Ignore" << std::endl;
     return;
@@ -188,7 +207,7 @@ LedgerImpl::onNewRecordNotification(const Interest& interest)
     recordInterest.setCanBePrefix(false);
     recordInterest.setMustBeFresh(true);
     m_network.expressInterest(recordInterest,
-                              bind(&LedgerImpl::onRequestedData, this, _1, _2),
+                              bind(&LedgerImpl::onFetchedRecord, this, _1, _2),
                               bind(&LedgerImpl::onNack, this, _1, _2),
                               bind(&LedgerImpl::onTimeout, this, _1));
   });
@@ -211,6 +230,7 @@ LedgerImpl::sendPeriodicSyncInterest()
 {
   std::cout << "[LedgerImpl::sendPeriodicSyncInterest] Send SYNC Interest.\n";
 
+  // SYNC Interest Name: /<multicastPrefix>/SYNC/digest
   // construct SYNC Interest
   Name syncInterestName = m_config.multicastPrefix;
   syncInterestName.append("SYNC");
@@ -239,112 +259,91 @@ LedgerImpl::startPeriodicAddRecord()
   record.addRecordItem(std::to_string(std::rand()));
   record.addRecordItem(std::to_string(std::rand()));
   record.addRecordItem(std::to_string(std::rand()));
-  ReturnCode result = addRecord(record);
+  ReturnCode result = createRecord(record);
   if (!result.success()) {
     std::cout << "- Adding record error : " << result.what() << std::endl;
   }
 
-  // schedule for the next SyncInterest Sending
+  // schedule for the next record generation
   m_scheduler.schedule(time::seconds(10), [this] { startPeriodicAddRecord(); });
 }
 
 bool
 LedgerImpl::checkValidityOfRecord(const Data& data)
 {
-  std::cout << "checkValidity Called";
+  std::cout << "[LedgerImpl::checkValidityOfRecord] Check the validity of the record" << std::endl;
+  std::cout << "- Step 1: Check whether it is a valid record following DLedger record spec" << std::endl;
+  Record dataRecord;
   try {
-    dledger::Record dataRecord = dledger::Record(data);
+    // @TODO: the current Record does not do foramt check. Add it later.
+    dataRecord = Record(data);
   }
   catch (const std::exception& e) {
-    std::cout << "Record wasn't proper";
+    std::cout << "-- Step 1: The Data format is not proper for DLedger record" << std::endl;
     return false;
   }
-  //Kknow this isn't right, but not sure how to use the keyLocator
-  KeyLocator keyl = KeyLocator(data.getSignature().getKeyLocator());
-  //Add state to ledger class which is another dictionary? Key is keylocator [keyname], value is the certificate. If have key, verify, else then trash
-  //ok, now do the rate check
-  std::string producedBy = data.getName().get(-3).toUri();
-  std::time_t present = std::time(0);
-  //magic number is seconds in a day
-  long day = 86400;
-  long timeDiff = static_cast<long int>((present - m_rateCheck[producedBy]));
-  if (!(timeDiff < day)) {
-    return false;
-  }
-  // 1. check format: name, payload: all the TLVs are there
-  // to do this: decode it into our record class
-  // 2. check signature
-  //  --- look into the key-locator field Data: so that you know which key be used to verify
-  //  --- key-locator: name of the key
-  //  *--- add new field to the content: record-id: certificate record
-  // it must have a sig signed by a certificate in the ledger
-  // 3. check rate limit -- state in memory, dict: peer-id, timestamp of latest record
-  return true;
-}
 
-void
-LedgerImpl::onRequestedData(const Interest& interest, const Data& data)
-{
-  std::cout << "onRequestedData Called \n";
-  // Context: this peer sent a Interest to ask for a Data
-  // this function is to handle the replied Data.
-  if (!checkValidityOfRecord(data)) {
-    std::cout << "Requested data is not valid \n";
-    return;
+  std::cout << "- Step 2: Check signature" << std::endl;
+  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
+  std::string producerID = dataRecord.getProducerID();
+  // @TODO: get the certificate from the cache
+
+  std::cout << "- Step 3: Check rating limit" << std::endl;
+  auto tp = dataRecord.getGenerationTimestamp();
+  if (m_rateCheck.find(producerID) == m_rateCheck.end()) {
+    m_rateCheck[producerID] = tp;
   }
   else {
-    //TODO: Additional functionality here where we, before adding it into the ledger, first check out its references
-    //And also go back and ask for more, potentially not adding it at all
-    auto producedBy = data.getName().get(-3).toUri();
-    std::time_t present = std::time(0);
-    m_rateCheck[producedBy] = present;
-    m_backend.putRecord((make_shared<Data>(data)));
-    m_tailingRecords.push_back(data.getFullName());
+    if ((time::abs(tp - m_rateCheck[producerID]) < RECORD_PRODUCTION_INTERVAL_RATE_LIMIT)) {
+      return false;
+    }
   }
-  // maybe a static function outside this fun but in the same cpp file
-  // checkValidityOfRecord
+
+  std::cout << "- Step 4: Check InterLock Policy" << std::endl;
+  // @TODO
+
+  std::cout << "- Step 4: Check Contribution Policy" << std::endl;
+  // @TODO
+
+  std::cout << "- All Steps finished. Good Record" << std::endl;
+  return true;
 }
 
 void
 LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 {
-  std::cout << "[LedgerImpl::onLedgerSyncRequest] Receive SYNC Interest" << std::endl;
+  std::cout << "[LedgerImpl::onLedgerSyncRequest] Receive SYNC Interest " << std::endl;
+  // @TODO when new Interest signature format is supported by ndn-cxx, we need to change the way to obtain signature info.
+  SignatureInfo info(interest.getName().get(-2).blockFromValue());
+  if (m_config.peerPrefix.isPrefixOf(info.getKeyLocator().getName())) {
+    std::cout << "- A SYNC Interest sent by myself. Ignore" << std::endl;
+    return;
+  }
+
+  // @TODO: verify the signature
+  // if (security::verifySignature(interest, TODO: certificate of the peer))
+
   const auto& appParam = interest.getApplicationParameters();
   appParam.parse();
   std::cout << "- Received Tailing Record Names: \n";
+  bool shouldSendSync = false;
   for (const auto& item : appParam.elements()) {
     Name recordName(item);
     std::cout << "-- " << recordName.toUri() << "\n";
-    // Check if they're in our tailing records.
-    // If they aren't, check if they're in the database.
-    // If they aren't, put them in an unverified list.
     if (std::find(m_tailingRecords.begin(), m_tailingRecords.end(), recordName) != m_tailingRecords.end()) {
       std::cout << "--- This record is already in our tailing records \n";
     }
     else if (m_backend.getRecord(recordName)) {
       std::cout << "--- This record is already in our Ledger but not tailing any more \n";
+      shouldSendSync = true;
     }
     else {
-      Interest interestForRecord(recordName);
-      interestForRecord.setCanBePrefix(false);
-      interestForRecord.setMustBeFresh(true);
-      std::cout << "--- Sending Record Fetching Interest " << interestForRecord.getName().toUri() << std::endl;
-      m_network.expressInterest(interestForRecord,
-                                bind(&LedgerImpl::onRequestedData, this, _1, _2),
-                                bind(&LedgerImpl::onNack, this, _1, _2),
-                                bind(&LedgerImpl::onTimeout, this, _1));
+      fetchRecord(recordName);
     }
   }
-  //really what we want to do is make a new vector of names, and add any names the two don't have in common.
-  //if they're the same, nothing to do
-  //else send all tailing records? what if there are additional records that aren't tailing?
-
-  // you should compare your own tailing records with this one
-  // if not same:
-  // 1. you see a new record that is not in your, go fetch it and all the further records until all of them are in your ledger
-  // 2. you see a record but it's no longer a tailing record in your ledger, then you send your SyncRequest
-
-  // in 1. whenever you get a new record, do record check
+  if (shouldSendSync) {
+    //@TODO send Sync Interest
+  }
 }
 
 void
@@ -356,6 +355,97 @@ LedgerImpl::onRecordRequest(const Interest& interest)
     std::cout << "- Found desired Data, reply it." << std::endl;
     m_network.put(*desiredData);
   }
+}
+
+void
+LedgerImpl::fetchRecord(const Name& recordName)
+{
+  std::cout << "[LedgerImpl::fetchRecordForSync] Fetch the missing record" << std::endl;
+  Interest interestForRecord(recordName);
+  interestForRecord.setCanBePrefix(false);
+  interestForRecord.setMustBeFresh(true);
+  std::cout << "- Sending Record Fetching Interest " << interestForRecord.getName().toUri() << std::endl;
+  m_network.expressInterest(interestForRecord,
+                            bind(&LedgerImpl::onFetchedRecord, this, _1, _2),
+                            bind(&LedgerImpl::onNack, this, _1, _2),
+                            bind(&LedgerImpl::onTimeout, this, _1));
+}
+
+void
+LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
+{
+  std::cout << "[LedgerImpl::onFetchedRecordForSync] fetched record " << data.getFullName().toUri() << std::endl;
+  if (hasRecord(data.getFullName().toUri())) {
+    std::cout << "- Record already exists in the ledger. Ignore" << std::endl;
+    return;
+  }
+  Record record(data);
+  m_syncStack.push_back(record);
+  auto precedingRecordNames = record.getPointersFromHeader();
+  bool allPrecedingRecordsInLedger = true;
+  for (const auto& precedingRecordName : precedingRecordNames) {
+    if (m_backend.getRecord(precedingRecordName)) {
+      std::cout << "- Preceding Record " << precedingRecordName << " already in the ledger" << std::endl;
+      continue;
+    }
+    allPrecedingRecordsInLedger = false;
+    fetchRecord(precedingRecordName);
+  }
+
+  if (!allPrecedingRecordsInLedger) {
+    return;
+  }
+
+  std::list<Name> badRecords;
+  for (auto it = m_syncStack.begin(); it != m_syncStack.end();) {
+    std::cout << "- SyncStack size " << m_syncStack.size() << std::endl;
+    bool readyToAdd = true;
+    bool badRecord = false;
+    if (it != m_syncStack.begin()) {
+      for (const auto& precedingRecordName : it->getPointersFromHeader()) {
+        auto findIt = std::find(badRecords.begin(), badRecords.end(), precedingRecordName);
+        if (findIt != badRecords.end()) {
+          // has preceding record being bad record
+          badRecord = true;
+        }
+        if (!hasRecord(precedingRecordName.toUri())) {
+          readyToAdd = false;
+        }
+      }
+    }
+    if (readyToAdd) {
+      if (checkValidityOfRecord(*(it->m_data))) {
+        std::cout << "- Good record. Will add record in to the ledger" << std::endl;
+        addToTailingRecord(*it);
+        m_backend.putRecord(it->m_data);
+        it = m_syncStack.erase(it);
+        continue;
+      }
+      else {
+        badRecord = true;
+      }
+    }
+    if (badRecord) {
+      std::cout << "- Bad record. Will remove it and all its later records" << std::endl;
+      badRecords.push_back(it->m_data->getFullName());
+      it = m_syncStack.erase(it);
+      continue;
+    }
+    // else, some preceding records are not yet fetched
+    it++;
+  }
+}
+
+void
+LedgerImpl::addToTailingRecord(const Record& record)
+{
+  auto precedingRecordList = record.getPointersFromHeader();
+  for (const auto& precedingRecord : precedingRecordList) {
+    m_tailingRecords.erase(std::remove(m_tailingRecords.begin(), m_tailingRecords.end(), precedingRecord),
+                           m_tailingRecords.end());
+  }
+  m_tailingRecords.push_back(record.m_data->getFullName());
+  dumpList(m_tailingRecords);
 }
 
 std::unique_ptr<Ledger>

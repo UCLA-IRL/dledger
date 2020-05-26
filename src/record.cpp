@@ -78,6 +78,18 @@ Record::wireEncode(Block& block) const
   bodyWireEncode(block);
 }
 
+std::string
+Record::getProducerID() const
+{
+  return readString(m_data->getName().get(-4));
+}
+
+time::system_clock::TimePoint
+Record::getGenerationTimestamp() const
+{
+  return m_data->getName().get(-1).toTimestamp();
+}
+
 void
 Record::headerWireEncode(Block& block) const
 {
