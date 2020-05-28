@@ -27,6 +27,9 @@ testBackEnd()
 
   backend.putRecord(data);
   auto anotherRecord = backend.getRecord(Name("/dledger/12345"));
+  if (data == nullptr || anotherRecord == nullptr) {
+      return false;
+  }
   if (data->wireEncode() != anotherRecord->wireEncode()) {
     return false;
   }

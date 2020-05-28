@@ -46,6 +46,10 @@ testGenData(std::string signerId)
 int
 main(int argc, char** argv)
 {
+  if (argc < 2) {
+      fprintf(stderr, "Usage: %s id_name", argv[0]);
+      return 1;
+  }
   std::string idName = argv[1];
   boost::asio::io_service ioService;
   Face face(ioService);
