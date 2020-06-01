@@ -24,16 +24,14 @@ testBackEnd()
 {
   Backend backend;
   auto data = makeData("/dledger/12345", "content is 12345");
+  auto fullName = data->getFullName();
 
   backend.putRecord(data);
-  auto anotherRecord = backend.getRecord(Name("/dledger/12345"));
+  auto anotherRecord = backend.getRecord(fullName);
   if (data == nullptr || anotherRecord == nullptr) {
       return false;
   }
-  if (data->wireEncode() != anotherRecord->wireEncode()) {
-    return false;
-  }
-  return true;
+  return data->wireEncode() == anotherRecord->wireEncode();
 }
 
 bool
