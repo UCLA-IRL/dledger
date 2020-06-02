@@ -228,31 +228,36 @@ LedgerImpl::onTimeout(const Interest& interest)
 void
 LedgerImpl::sendPeriodicSyncInterest()
 {
-  std::cout << "[LedgerImpl::sendPeriodicSyncInterest] Send SYNC Interest.\n";
+  std::cout << "[LedgerImpl::sendPeriodicSyncInterest] Send periodic SYNC Interest.\n";
 
-  // SYNC Interest Name: /<multicastPrefix>/SYNC/digest
-  // construct SYNC Interest
-  Name syncInterestName = m_config.multicastPrefix;
-  syncInterestName.append("SYNC");
-  Interest syncInterest(syncInterestName);
-  Block appParam = makeEmptyBlock(tlv::ApplicationParameters);
-  for (const auto& item : m_tailingRecords) {
-    appParam.push_back(item.wireEncode());
-  }
-  appParam.parse();
-  syncInterest.setApplicationParameters(appParam);
-  syncInterest.setCanBePrefix(false);
-  syncInterest.setMustBeFresh(true);
-  m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
-  // nullptrs for data and timeout callbacks because a sync Interest is not expecting a Data back
-  m_network.expressInterest(syncInterest, nullptr,
-                            bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
+  sendSyncInterest();
 
   // schedule for the next SyncInterest Sending
   m_scheduler.schedule(time::seconds(5), [this] { sendPeriodicSyncInterest(); });
 }
 
-void
+void LedgerImpl::sendSyncInterest() {
+    std::cout << "[LedgerImpl::sendSyncInterest] Send SYNC Interest.\n";
+    // SYNC Interest Name: /<multicastPrefix>/SYNC/digest
+    // construct SYNC Interest
+    Name syncInterestName = m_config.multicastPrefix;
+    syncInterestName.append("SYNC");
+    Interest syncInterest(syncInterestName);
+    Block appParam = makeEmptyBlock(tlv::ApplicationParameters);
+    for (const auto &item : m_tailingRecords) {
+        appParam.push_back(item.wireEncode());
+    }
+    appParam.parse();
+    syncInterest.setApplicationParameters(appParam);
+    syncInterest.setCanBePrefix(false);
+    syncInterest.setMustBeFresh(true);
+    m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
+    // nullptrs for data and timeout callbacks because a sync Interest is not expecting a Data back
+    m_network.expressInterest(syncInterest, nullptr,
+                              bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
+}
+
+    void
 LedgerImpl::startPeriodicAddRecord()
 {
   Record record(RecordType::GenericRecord, std::to_string(std::rand()));
@@ -342,7 +347,8 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
     }
   }
   if (shouldSendSync) {
-    //@TODO send Sync Interest
+      std::cout << "[LedgerImpl::onLedgerSyncRequest] send Sync interest so others can fetch new record\n";
+      sendSyncInterest();
   }
 }
 

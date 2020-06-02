@@ -52,13 +52,13 @@ private:
   bool
   checkValidityOfRecord(const Data& data);
 
-  // Interet format: each <> is only one name component
+  // Interest format: each <> is only one name component
   // /<multicast_prefix>/NOTIF/<Full Name of Record>
   // Signature of the producer
   void
   onNewRecordNotification(const Interest& interest);
 
-  // Interet format:
+  // Interest format:
   // /<multicast_prefix>/SYNC
   // Parameters: A list of tailing record names
   void
@@ -79,6 +79,9 @@ private:
   onFetchedRecord(const Interest& interest, const Data& data);
   void
   addToTailingRecord(const Record& record);
+
+  //Siqi's temp function
+  void sendSyncInterest();
 
 private:
   Config m_config;
