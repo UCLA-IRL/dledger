@@ -61,7 +61,7 @@ LedgerImpl::LedgerImpl(const Config& config,
   //****STEP 3****
   // Make the genesis data
   for (int i = 0; i < DEFAULT_GENESIS_BLOCKS; i++) {
-    Name recordName("/genesis/" + std::to_string(i));
+    Name recordName("/dledger/genesis/Genesis/" + std::to_string(i) + "/0");
     auto data = make_shared<Data>(recordName);
     auto contentBlock = makeEmptyBlock(tlv::Content);
     data->setContent(contentBlock);
@@ -280,7 +280,7 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   std::cout << "- Step 1: Check whether it is a valid record following DLedger record spec" << std::endl;
   Record dataRecord;
   try {
-    // @TODO: the current Record does not do foramt check. Add it later.
+    // @TODO: the current Record does not do format check. Add it later.
     dataRecord = Record(data);
   }
   catch (const std::exception& e) {
@@ -305,7 +305,13 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   }
 
   std::cout << "- Step 4: Check InterLock Policy" << std::endl;
-  // @TODO
+  for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
+      std::cout << "-- Preceding record from " << readString(precedingRecordName.get(-5)) << '\n';
+      if (readString(precedingRecordName.get(-5)) == producerID) {
+          std::cout << "--- From itself" << '\n';
+          return false;
+      }
+  }
 
   std::cout << "- Step 4: Check Contribution Policy" << std::endl;
   // @TODO
@@ -392,27 +398,26 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
   for (const auto& precedingRecordName : precedingRecordNames) {
     if (m_backend.getRecord(precedingRecordName)) {
       std::cout << "- Preceding Record " << precedingRecordName << " already in the ledger" << std::endl;
-      continue;
+    } else {
+        allPrecedingRecordsInLedger = false;
+        fetchRecord(precedingRecordName);
     }
-    allPrecedingRecordsInLedger = false;
-    fetchRecord(precedingRecordName);
   }
 
   if (!allPrecedingRecordsInLedger) {
     return;
   }
 
-  std::list<Name> badRecords;
   for (auto it = m_syncStack.begin(); it != m_syncStack.end();) {
     std::cout << "- SyncStack size " << m_syncStack.size() << std::endl;
     bool readyToAdd = true;
     bool badRecord = false;
     if (it != m_syncStack.begin()) {
       for (const auto& precedingRecordName : it->getPointersFromHeader()) {
-        auto findIt = std::find(badRecords.begin(), badRecords.end(), precedingRecordName);
-        if (findIt != badRecords.end()) {
+        if (m_badRecords.count(precedingRecordName) != 0) {
           // has preceding record being bad record
           badRecord = true;
+          break;
         }
         if (!hasRecord(precedingRecordName.toUri())) {
           readyToAdd = false;
@@ -433,7 +438,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
     }
     if (badRecord) {
       std::cout << "- Bad record. Will remove it and all its later records" << std::endl;
-      badRecords.push_back(it->m_data->getFullName());
+      m_badRecords.insert(it->m_data->getFullName());
       it = m_syncStack.erase(it);
       continue;
     }

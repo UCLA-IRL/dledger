@@ -81,7 +81,7 @@ Record::wireEncode(Block& block) const
 std::string
 Record::getProducerID() const
 {
-  return readString(m_data->getName().get(-4));
+  return readString(m_data->getFullName().get(-5));
 }
 
 time::system_clock::TimePoint

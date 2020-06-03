@@ -13,6 +13,7 @@
 #include <ndn-cxx/util/io.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
 #include <stack>
+#include <unordered_set>
 
 
 using namespace ndn;
@@ -100,6 +101,9 @@ private:
 
   // Zhiyi's temp member variable
   std::list<Record> m_syncStack;
+
+  // Siqi's temp member variable
+  std::unordered_set<Name> m_badRecords;
 };
 
 // class Ledger
