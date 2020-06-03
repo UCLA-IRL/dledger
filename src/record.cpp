@@ -12,25 +12,18 @@ Record::Record(RecordType type, const std::string& identifer)
 }
 
 Record::Record(const std::shared_ptr<Data>& data)
-    : m_data(data),
-      m_type(GenericRecord)
+    : m_data(data)
 {
-  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
-  m_type = stringToRecordType(readString(m_data->getName().get(2)));
-  m_uniqueIdentifier = readString(m_data->getName().get(3));
+  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
+  m_type = stringToRecordType(readString(m_data->getName().get(-3)));
+  m_uniqueIdentifier = readString(m_data->getName().get(-2));
   headerWireDecode(m_data->getContent());
   bodyWireDecode(m_data->getContent());
 }
 
 Record::Record(ndn::Data data)
-    : m_data(std::make_shared<ndn::Data>(std::move(data))),
-      m_type(GenericRecord)
+    : Record(std::make_shared<ndn::Data>(std::move(data)))
 {
-  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
-  m_type = stringToRecordType(readString(m_data->getName().get(2)));
-  m_uniqueIdentifier = readString(m_data->getName().get(3));
-  headerWireDecode(m_data->getContent());
-  bodyWireDecode(m_data->getContent());
 }
 
 std::string
@@ -81,7 +74,7 @@ Record::wireEncode(Block& block) const
 std::string
 Record::getProducerID() const
 {
-  return readString(m_data->getFullName().get(-5));
+  return readString(m_data->getName().get(-4));
 }
 
 time::system_clock::TimePoint
