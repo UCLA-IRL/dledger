@@ -61,7 +61,10 @@ LedgerImpl::LedgerImpl(const Config& config,
   //****STEP 3****
   // Make the genesis data
   for (int i = 0; i < DEFAULT_GENESIS_BLOCKS; i++) {
-    Name recordName("/dledger/genesis/Genesis/" + std::to_string(i) + "/0");
+    Name recordName(config.peerPrefix.getSubName(0, config.peerPrefix.size() - 1));
+    recordName.append("genesis").append(recordTypeToString(GenesisRecord)).append(std::to_string(i));
+    recordName.appendTimestamp(time::system_clock::time_point());
+
     auto data = make_shared<Data>(recordName);
     auto contentBlock = makeEmptyBlock(tlv::Content);
     data->setContent(contentBlock);
