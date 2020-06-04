@@ -1,4 +1,5 @@
 #include "dledger/record.hpp"
+#include "record_name.hpp"
 
 #include <sstream>
 
@@ -14,9 +15,9 @@ Record::Record(RecordType type, const std::string& identifer)
 Record::Record(const std::shared_ptr<Data>& data)
     : m_data(data)
 {
-  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
-  m_type = stringToRecordType(readString(m_data->getName().get(-3)));
-  m_uniqueIdentifier = readString(m_data->getName().get(-2));
+  RecordName name(m_data->getName());
+  m_type = name.getRecordType();
+  m_uniqueIdentifier = name.getRecordUniqueIdentifier();
   headerWireDecode(m_data->getContent());
   bodyWireDecode(m_data->getContent());
 }
@@ -74,13 +75,13 @@ Record::wireEncode(Block& block) const
 std::string
 Record::getProducerID() const
 {
-  return readString(m_data->getName().get(-4));
+  return RecordName(m_data->getName()).getProducerID();
 }
 
 time::system_clock::TimePoint
 Record::getGenerationTimestamp() const
 {
-  return m_data->getName().get(-1).toTimestamp();
+  return RecordName(m_data->getName()).getGenerationTimestamp();
 }
 
 void

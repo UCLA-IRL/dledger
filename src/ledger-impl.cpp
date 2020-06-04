@@ -1,4 +1,5 @@
 #include "ledger-impl.hpp"
+#include "record_name.hpp"
 
 #include <algorithm>
 #include <ndn-cxx/encoding/block-helpers.hpp>
@@ -61,10 +62,7 @@ LedgerImpl::LedgerImpl(const Config& config,
   //****STEP 3****
   // Make the genesis data
   for (int i = 0; i < DEFAULT_GENESIS_BLOCKS; i++) {
-    Name recordName(config.peerPrefix.getSubName(0, config.peerPrefix.size() - 1));
-    recordName.append("genesis").append(recordTypeToString(GenesisRecord)).append(std::to_string(i));
-    recordName.appendTimestamp(time::system_clock::time_point());
-
+    RecordName recordName = RecordName::generateGenesisRecordName(config, i);
     auto data = make_shared<Data>(recordName);
     auto contentBlock = makeEmptyBlock(tlv::Content);
     data->setContent(contentBlock);
@@ -118,8 +116,7 @@ LedgerImpl::createRecord(Record& record)
   }
   // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
   // each <> represent only one component
-  Name dataName = m_config.peerPrefix;
-  dataName.append(recordTypeToString(record.m_type)).append(record.m_uniqueIdentifier).appendTimestamp();
+  Name dataName = RecordName::generateGenericRecordName(m_config, record);
   auto data = make_shared<Data>(dataName);
   auto contentBlock = makeEmptyBlock(tlv::Content);
   record.wireEncode(contentBlock);
@@ -309,8 +306,8 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
 
   std::cout << "- Step 4: Check InterLock Policy" << std::endl;
   for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
-      std::cout << "-- Preceding record from " << readString(precedingRecordName.get(-5)) << '\n';
-      if (readString(precedingRecordName.get(-5)) == producerID) {
+      std::cout << "-- Preceding record from " << RecordName(precedingRecordName).getProducerID() << '\n';
+      if (RecordName(precedingRecordName).getProducerID() == producerID) {
           std::cout << "--- From itself" << '\n';
           return false;
       }
@@ -394,21 +391,29 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
     std::cout << "- Record already exists in the ledger. Ignore" << std::endl;
     return;
   }
-  Record record(data);
-  m_syncStack.push_back(record);
-  auto precedingRecordNames = record.getPointersFromHeader();
-  bool allPrecedingRecordsInLedger = true;
-  for (const auto& precedingRecordName : precedingRecordNames) {
-    if (m_backend.getRecord(precedingRecordName)) {
-      std::cout << "- Preceding Record " << precedingRecordName << " already in the ledger" << std::endl;
-    } else {
-        allPrecedingRecordsInLedger = false;
-        fetchRecord(precedingRecordName);
-    }
-  }
 
-  if (!allPrecedingRecordsInLedger) {
-    return;
+  try {
+      Record record(data);
+      m_syncStack.push_back(record);
+      auto precedingRecordNames = record.getPointersFromHeader();
+      bool allPrecedingRecordsInLedger = true;
+      for (const auto &precedingRecordName : precedingRecordNames) {
+          if (m_backend.getRecord(precedingRecordName)) {
+              std::cout << "- Preceding Record " << precedingRecordName << " already in the ledger" << std::endl;
+          } else {
+              allPrecedingRecordsInLedger = false;
+              fetchRecord(precedingRecordName);
+          }
+      }
+
+      if (!allPrecedingRecordsInLedger) {
+        return;
+      }
+
+  } catch (const std::exception& e) {
+      std::cout << "- The Data format is not proper for DLedger record" << std::endl;
+      m_badRecords.insert(data.getFullName());
+      return;
   }
 
   for (auto it = m_syncStack.begin(); it != m_syncStack.end();) {

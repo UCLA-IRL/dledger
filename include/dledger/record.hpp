@@ -62,6 +62,14 @@ public: // used for preparing a new record before appending it into the DLedger
   }
 
   /**
+    * Get the record type of the record.
+    */
+  std::string
+  getUniqueIdentifier() const {
+      return m_uniqueIdentifier;
+  }
+
+  /**
    * Get record payload items.
    */
   const std::list<std::string>&
