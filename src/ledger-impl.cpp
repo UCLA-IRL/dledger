@@ -290,12 +290,11 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
         throw std::runtime_error("Wrong App common prefix");
     }
   } catch (const std::exception& e) {
-    std::cout << "-- Step 1: The Data format is not proper for DLedger record" << std::endl;
+    std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
     return false;
   }
 
   std::cout << "- Step 2: Check signature" << std::endl;
-  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
   std::string producerID = dataRecord.getProducerID();
   // @TODO: get the certificate from the cache
 
@@ -417,7 +416,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       }
 
   } catch (const std::exception& e) {
-      std::cout << "- The Data format is not proper for DLedger record" << std::endl;
+      std::cout << "- The Data format is not proper for DLedger record because " << e.what() << std::endl;
       m_badRecords.insert(data.getFullName());
       return;
   }
