@@ -62,7 +62,7 @@ public: // used for preparing a new record before appending it into the DLedger
   }
 
   /**
-    * Get the record type of the record.
+    * Get the record unique identifier of the record.
     */
   std::string
   getUniqueIdentifier() const {

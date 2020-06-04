@@ -100,7 +100,7 @@ LedgerImpl::createRecord(Record& record)
   int counter = 0, iterator = 0;
   auto tailingRecordsCopy = m_tailingRecords;
   dumpList(m_tailingRecords);
-  for (; counter < m_config.preceidingRecordNum && iterator < m_tailingRecords.size(); counter++) {
+  for (; counter < m_config.precedingRecordNum && iterator < m_tailingRecords.size(); counter++) {
     const auto& recordId = m_tailingRecords[iterator];
     if (m_config.peerPrefix.isPrefixOf(recordId)) {
       counter--;
@@ -110,7 +110,7 @@ LedgerImpl::createRecord(Record& record)
     record.addPointer(recordId);
     m_tailingRecords.erase(m_tailingRecords.begin() + iterator);
   }
-  if (counter < m_config.preceidingRecordNum) {
+  if (counter < m_config.precedingRecordNum) {
     m_tailingRecords = tailingRecordsCopy;
     return ReturnCode::notEnoughTailingRecord();
   }
@@ -282,8 +282,14 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   try {
     // @TODO: the current Record does not do format check. Add it later.
     dataRecord = Record(data);
-  }
-  catch (const std::exception& e) {
+    if (dataRecord.getPointersFromHeader().size() != m_config.precedingRecordNum) {
+        throw std::runtime_error("Less preceding record than expected");
+    }
+    if (RecordName(dataRecord.m_data->getFullName()).getApplicationCommonPrefix() !=
+    m_config.peerPrefix.getSubName(0, m_config.peerPrefix.size() - 1).toUri()){
+        throw std::runtime_error("Wrong App common prefix");
+    }
+  } catch (const std::exception& e) {
     std::cout << "-- Step 1: The Data format is not proper for DLedger record" << std::endl;
     return false;
   }
