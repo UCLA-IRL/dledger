@@ -80,6 +80,7 @@ LedgerImpl::LedgerImpl(const Config& config,
 
 LedgerImpl::~LedgerImpl()
 {
+    m_network.shutdown();
 }
 
 ReturnCode
@@ -280,7 +281,7 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   std::cout << "- Step 1: Check whether it is a valid record following DLedger record spec" << std::endl;
   Record dataRecord;
   try {
-    // @TODO: the current Record does not do format check. Add it later.
+    // format check
     dataRecord = Record(data);
     if (dataRecord.getPointersFromHeader().size() != m_config.precedingRecordNum) {
         throw std::runtime_error("Less preceding record than expected");
@@ -320,6 +321,12 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
 
   std::cout << "- Step 4: Check Contribution Policy" << std::endl;
   // @TODO
+
+  std::cout << "- Step 5: Check App Logic" << std::endl;
+  if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
+      std::cout << "-- App Logic check failed" << std::endl;
+      return false;
+  }
 
   std::cout << "- All Steps finished. Good Record" << std::endl;
   return true;
@@ -399,6 +406,9 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
 
   try {
       Record record(data);
+      if (record.getType() == RecordType::GenesisRecord) {
+          throw std::runtime_error("should not get Genesis record");
+      }
       m_syncStack.push_back(record);
       auto precedingRecordNames = record.getPointersFromHeader();
       bool allPrecedingRecordsInLedger = true;
