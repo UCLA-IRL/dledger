@@ -109,7 +109,7 @@ Record::headerWireDecode(const Block& dataContent)
        try{
          pointer.wireDecode(item);
        } catch (const tlv::Error& e){
-         NFD_LOG_DEBUG("Malformed data to header record: " << e.what() );
+         NFD_LOG_DEBUG("Malformed data can't be converted to record: " << e.what() );
        }
         
         m_recordPointers.push_back(pointer);
