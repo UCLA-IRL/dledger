@@ -106,7 +106,12 @@ Record::headerWireDecode(const Block& dataContent)
     Name pointer;
     for (const auto& item : headerBlock.elements()) {
       if (item.type() == tlv::Name) {
-        pointer.wireDecode(item);
+       try{
+         pointer.wireDecode(item);
+       } catch (const tlv::Error& e){
+         std::cout << ( e.what() );
+       }
+        
         m_recordPointers.push_back(pointer);
       }
     }
