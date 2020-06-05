@@ -106,7 +106,12 @@ Record::headerWireDecode(const Block& dataContent)
     Name pointer;
     for (const auto& item : headerBlock.elements()) {
       if (item.type() == tlv::Name) {
-        pointer.wireDecode(item);
+       try{
+         pointer.wireDecode(item);
+       } catch (const tlv::Error& e){
+         NFD_LOG_DEBUG("Malformed data to header record: " << e.what() );
+       }
+        
         m_recordPointers.push_back(pointer);
       }
     }
