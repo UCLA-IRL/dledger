@@ -173,10 +173,7 @@ bool
 LedgerImpl::hasRecord(const std::string& recordName)
 {
   auto dataPtr = m_backend.getRecord(Name(recordName));
-  if (dataPtr != nullptr) {
-    return true;
-  }
-  return false;
+    return dataPtr != nullptr;
 }
 
 void
@@ -375,7 +372,7 @@ LedgerImpl::fetchRecord(const Name& recordName)
   std::cout << "[LedgerImpl::fetchRecordForSync] Fetch the missing record" << std::endl;
   Interest interestForRecord(recordName);
   interestForRecord.setCanBePrefix(false);
-  interestForRecord.setMustBeFresh(true);
+  interestForRecord.setMustBeFresh(false);
   std::cout << "- Sending Record Fetching Interest " << interestForRecord.getName().toUri() << std::endl;
   m_network.expressInterest(interestForRecord,
                             bind(&LedgerImpl::onFetchedRecord, this, _1, _2),
