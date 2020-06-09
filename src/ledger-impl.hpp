@@ -86,18 +86,16 @@ private:
 
 private:
   Config m_config;
-  security::KeyChain& m_keychain;
   Face& m_network;
   std::string m_id;
   Scheduler m_scheduler;
 
-
-  std::vector<Name> m_neededRecords;
-  ndn::Name m_producerId;
-  std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
-  std::vector<Name> m_tailingRecords;
-  std::map<Name, Name> m_peerCertificates; // first: name of the peer, second: name of the certificate record
   Backend m_backend;
+  std::map<Name, int> m_tailRecords;
+
+  std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
+  security::KeyChain& m_keychain;
+  std::map<Name, Name> m_peerCertificates; // first: name of the peer, second: name of the certificate record
 
   // Zhiyi's temp member variable
   std::list<Record> m_syncStack;

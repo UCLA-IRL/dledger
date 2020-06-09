@@ -18,9 +18,19 @@ const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds
 void
 dumpList(const std::vector<Name>& list)
 {
+    std::cout << "Dump Tailing Records" << std::endl;
+    for (const auto& item : list) {
+        std::cout << item.toUri() << std::endl;
+    }
+    std::cout << std::endl << std::endl;
+}
+
+void
+dumpList(const std::map<Name, int>& weight)
+{
   std::cout << "Dump Tailing Records" << std::endl;
-  for (const auto& item : list) {
-    std::cout << item.toUri() << std::endl;
+  for (const auto& item : weight) {
+    std::cout << item.second << "\t" << item.first.toUri() << std::endl;
   }
   std::cout << std::endl << std::endl;
 }
@@ -66,8 +76,8 @@ LedgerImpl::LedgerImpl(const Config& config,
     auto contentBlock = makeEmptyBlock(tlv::Content);
     data->setContent(contentBlock);
     m_keychain.sign(*data, security::signingWithSha256());
-    m_tailingRecords.push_back(data->getFullName());
     m_backend.putRecord(data);
+    m_tailRecords[data->getFullName()] = 0;
   }
   std::cout << "STEP 3" << std::endl
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
@@ -85,34 +95,38 @@ ReturnCode
 LedgerImpl::createRecord(Record& record)
 {
   std::cout << "[LedgerImpl::addRecord] Add new record" << std::endl;
-  if (m_tailingRecords.size() <= 0) {
+  if (m_tailRecords.empty()) {
     return ReturnCode::noTailingRecord();
   }
+
+  std::vector<std::pair<Name, int>> recordList;
+  for (const auto &item : m_tailRecords) {
+    recordList.emplace_back(item);
+  }
+
   // randomly shuffle the tailing record list
-  std::set<std::string> precedingRecords;
   std::random_device rd;
   std::default_random_engine engine{rd()};
-  std::shuffle(std::begin(m_tailingRecords), std::end(m_tailingRecords), engine);
+  std::shuffle(std::begin(recordList), std::end(recordList), engine);
+  std::stable_sort(std::begin(recordList), std::end(recordList),
+          [](const std::pair<Name, int>& a, const std::pair<Name, int>& b){return a.second < b.second;});
+
   // fulfill the record content with preceding record IDs
-  // and remove the selected preceding records from tailing record list
-  std::string contentStr = "";
-  int counter = 0, iterator = 0;
-  auto tailingRecordsCopy = m_tailingRecords;
-  dumpList(m_tailingRecords);
-  for (; counter < m_config.preceidingRecordNum && iterator < m_tailingRecords.size(); counter++) {
-    const auto& recordId = m_tailingRecords[iterator];
-    if (m_config.peerPrefix.isPrefixOf(recordId)) {
-      counter--;
-      iterator++;
-      continue;
-    }
-    record.addPointer(recordId);
-    m_tailingRecords.erase(m_tailingRecords.begin() + iterator);
+  // removal of preceding record is done by addToTailingRecord() at the end
+  int counter = 0;
+  dumpList(m_tailRecords);
+  for (const auto &tailRecord : recordList) {
+      if (!m_config.peerPrefix.isPrefixOf(tailRecord.first)) {
+          record.addPointer(tailRecord.first);
+          counter ++;
+      }
+      if (counter >= m_config.precedingRecordNum)
+          break;
   }
-  if (counter < m_config.preceidingRecordNum) {
-    m_tailingRecords = tailingRecordsCopy;
+  if (counter < m_config.precedingRecordNum) {
     return ReturnCode::notEnoughTailingRecord();
   }
+
   // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
   // each <> represent only one component
   Name dataName = m_config.peerPrefix;
@@ -128,7 +142,6 @@ LedgerImpl::createRecord(Record& record)
     m_keychain.sign(*data, security::signingByIdentity(m_config.peerPrefix));
   }
   catch (const std::exception& e) {
-    m_tailingRecords = tailingRecordsCopy;
     return ReturnCode::signingError(e.what());
   }
   record.m_data = data;
@@ -145,7 +158,6 @@ LedgerImpl::createRecord(Record& record)
     m_keychain.sign(interest, security::signingByIdentity(m_config.peerPrefix));
   }
   catch (const std::exception& e) {
-    m_tailingRecords = tailingRecordsCopy;
     return ReturnCode::signingError(e.what());
   }
   m_network.expressInterest(interest, nullptr, bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
@@ -241,8 +253,9 @@ void LedgerImpl::sendSyncInterest() {
     syncInterestName.append("SYNC");
     Interest syncInterest(syncInterestName);
     Block appParam = makeEmptyBlock(tlv::ApplicationParameters);
-    for (const auto &item : m_tailingRecords) {
-        appParam.push_back(item.wireEncode());
+    for (const auto &item : m_tailRecords) {
+        if (item.second == 0)
+            appParam.push_back(item.first.wireEncode());
     }
     appParam.parse();
     syncInterest.setApplicationParameters(appParam);
@@ -338,7 +351,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
   for (const auto& item : appParam.elements()) {
     Name recordName(item);
     std::cout << "-- " << recordName.toUri() << "\n";
-    if (std::find(m_tailingRecords.begin(), m_tailingRecords.end(), recordName) != m_tailingRecords.end()) {
+    if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName] == 0) {
       std::cout << "--- This record is already in our tailing records \n";
     }
     else if (m_backend.getRecord(recordName)) {
@@ -372,7 +385,7 @@ LedgerImpl::fetchRecord(const Name& recordName)
   std::cout << "[LedgerImpl::fetchRecordForSync] Fetch the missing record" << std::endl;
   Interest interestForRecord(recordName);
   interestForRecord.setCanBePrefix(false);
-  interestForRecord.setMustBeFresh(false);
+  interestForRecord.setMustBeFresh(true);
   std::cout << "- Sending Record Fetching Interest " << interestForRecord.getName().toUri() << std::endl;
   m_network.expressInterest(interestForRecord,
                             bind(&LedgerImpl::onFetchedRecord, this, _1, _2),
@@ -449,11 +462,20 @@ LedgerImpl::addToTailingRecord(const Record& record)
 {
   auto precedingRecordList = record.getPointersFromHeader();
   for (const auto& precedingRecord : precedingRecordList) {
-    m_tailingRecords.erase(std::remove(m_tailingRecords.begin(), m_tailingRecords.end(), precedingRecord),
-                           m_tailingRecords.end());
+    if (m_tailRecords.count(precedingRecord) != 0)
+        m_tailRecords[precedingRecord] ++;
   }
-  m_tailingRecords.push_back(record.m_data->getFullName());
-  dumpList(m_tailingRecords);
+
+  for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
+      if (it->second >= m_config.referenceRecordNum) {
+          it = m_tailRecords.erase(it);
+      } else {
+          it ++;
+      }
+  }
+
+  m_tailRecords[record.m_data->getFullName()] = 0;
+  dumpList(m_tailRecords);
 }
 
 std::unique_ptr<Ledger>
