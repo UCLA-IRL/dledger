@@ -324,7 +324,15 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   }
 
   std::cout << "- Step 4: Check Contribution Policy" << std::endl;
-  // @TODO
+  for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
+      if (m_tailRecords.count(precedingRecordName) != 0) {
+          std::cout << "-- Preceding record has reference" << m_tailRecords[precedingRecordName] << '\n';
+      } else {
+          std::cout << "-- Preceding record too deep" << '\n';
+          //TODO enforce
+          //return false;
+      }
+  }
 
   std::cout << "- Step 5: Check App Logic" << std::endl;
   if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
