@@ -19,7 +19,7 @@ const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds
 void
 dumpList(const std::vector<Name>& list)
 {
-    std::cout << "Dump Tailing Records" << std::endl;
+    std::cout << "Dump " << list.size() << " Tailing Records" << std::endl;
     for (const auto& item : list) {
         std::cout << item.toUri() << std::endl;
     }
@@ -29,7 +29,7 @@ dumpList(const std::vector<Name>& list)
 void
 dumpList(const std::map<Name, int>& weight)
 {
-  std::cout << "Dump Tailing Records" << std::endl;
+    std::cout << "Dump " << weight.size() << " Tailing Records" << std::endl;
   for (const auto& item : weight) {
     std::cout << item.second << "\t" << item.first.toUri() << std::endl;
   }
