@@ -164,8 +164,8 @@ LedgerImpl::createRecord(Record& record)
   m_network.expressInterest(interest, nullptr, bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
 
   // add new record into the ledger
-  m_backend.putRecord(data);
   addToTailingRecord(record);
+  m_backend.putRecord(data);
   return ReturnCode::noError();
 }
 
@@ -475,24 +475,28 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
 }
 
 void
-LedgerImpl::addToTailingRecord(const Record& record)
-{
-  auto precedingRecordList = record.getPointersFromHeader();
-  for (const auto& precedingRecord : precedingRecordList) {
-    if (m_tailRecords.count(precedingRecord) != 0)
-        m_tailRecords[precedingRecord] ++;
-  }
+LedgerImpl::addToTailingRecord(const Record& record) {
+    if (m_tailRecords.count(record.m_data->getFullName()) != 0) {
+        std::cout << "[LedgerImpl::addToTailingRecord] Repeated add record: " << record.m_data->getFullName()
+                  << std::endl;
+        return;
+    }
+    auto precedingRecordList = record.getPointersFromHeader();
+    for (const auto &precedingRecord : precedingRecordList) {
+        if (m_tailRecords.count(precedingRecord) != 0)
+            m_tailRecords[precedingRecord]++;
+    }
 
-  for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
-      if (it->second >= m_config.referenceRecordNum) {
-          it = m_tailRecords.erase(it);
-      } else {
-          it ++;
-      }
-  }
+    for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
+        if (it->second >= m_config.referenceRecordNum) {
+            it = m_tailRecords.erase(it);
+        } else {
+            it++;
+        }
+    }
 
-  m_tailRecords[record.m_data->getFullName()] = 0;
-  dumpList(m_tailRecords);
+    m_tailRecords[record.m_data->getFullName()] = 0;
+    dumpList(m_tailRecords);
 }
 
 std::unique_ptr<Ledger>
