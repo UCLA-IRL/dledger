@@ -397,12 +397,23 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
     std::cout << "- Record already exists in the ledger. Ignore" << std::endl;
     return;
   }
+  if (m_badRecords.count(data.getFullName()) != 0) {
+      std::cout << "- Known bad record. Ignore" << std::endl;
+      return;
+  }
+  for (const auto& stackRecord : m_syncStack) {
+      if (stackRecord.getRecordName() == data.getFullName().toUri()) {
+          std::cout << "- Record in sync stack already. Ignore" << std::endl;
+          return;
+      }
+  }
 
   try {
       Record record(data);
       if (record.getType() == RecordType::GenesisRecord) {
           throw std::runtime_error("should not get Genesis record");
       }
+
       m_syncStack.push_back(record);
       auto precedingRecordNames = record.getPointersFromHeader();
       bool allPrecedingRecordsInLedger = true;
@@ -416,7 +427,8 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       }
 
       if (!allPrecedingRecordsInLedger) {
-        return;
+          std::cout << "- Waiting for record to be added" << std::endl;
+          return;
       }
 
   } catch (const std::exception& e) {
