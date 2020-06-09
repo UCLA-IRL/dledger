@@ -1,4 +1,5 @@
 #include "dledger/record.hpp"
+#include "record_name.hpp"
 
 #include <sstream>
 
@@ -12,25 +13,18 @@ Record::Record(RecordType type, const std::string& identifer)
 }
 
 Record::Record(const std::shared_ptr<Data>& data)
-    : m_data(data),
-      m_type(GenericRecord)
+    : m_data(data)
 {
-  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
-  m_type = stringToRecordType(readString(m_data->getName().get(2)));
-  m_uniqueIdentifier = readString(m_data->getName().get(3));
+  RecordName name(m_data->getName());
+  m_type = name.getRecordType();
+  m_uniqueIdentifier = name.getRecordUniqueIdentifier();
   headerWireDecode(m_data->getContent());
   bodyWireDecode(m_data->getContent());
 }
 
 Record::Record(ndn::Data data)
-    : m_data(std::make_shared<ndn::Data>(std::move(data))),
-      m_type(GenericRecord)
+    : Record(std::make_shared<ndn::Data>(std::move(data)))
 {
-  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>
-  m_type = stringToRecordType(readString(m_data->getName().get(2)));
-  m_uniqueIdentifier = readString(m_data->getName().get(3));
-  headerWireDecode(m_data->getContent());
-  bodyWireDecode(m_data->getContent());
 }
 
 std::string
@@ -81,13 +75,13 @@ Record::wireEncode(Block& block) const
 std::string
 Record::getProducerID() const
 {
-  return readString(m_data->getFullName().get(-5));
+  return RecordName(m_data->getName()).getProducerID();
 }
 
 time::system_clock::TimePoint
 Record::getGenerationTimestamp() const
 {
-  return m_data->getName().get(-1).toTimestamp();
+  return RecordName(m_data->getName()).getGenerationTimestamp();
 }
 
 void
@@ -112,7 +106,12 @@ Record::headerWireDecode(const Block& dataContent)
     Name pointer;
     for (const auto& item : headerBlock.elements()) {
       if (item.type() == tlv::Name) {
-        pointer.wireDecode(item);
+       try{
+         pointer.wireDecode(item);
+       } catch (const tlv::Error& e){
+         std::cout << ( e.what() );
+       }
+        
         m_recordPointers.push_back(pointer);
       }
     }

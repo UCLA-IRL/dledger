@@ -70,9 +70,6 @@ private:
   void
   onRecordRequest(const Interest& interest);
 
-  bool
-  check_record_function(const Data& data);
-
   // Zhiyi's temp function
   void
   fetchRecord(const Name& dataName);

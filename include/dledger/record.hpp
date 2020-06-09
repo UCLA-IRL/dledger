@@ -15,6 +15,7 @@ enum RecordType {
   GenericRecord = 1,
   CertificateRecord = 2,
   RevocationRecord = 3,
+  GenesisRecord = 4,
 };
 
 /**
@@ -58,6 +59,14 @@ public: // used for preparing a new record before appending it into the DLedger
   RecordType
   getType() const {
     return m_type;
+  }
+
+  /**
+    * Get the record unique identifier of the record.
+    */
+  std::string
+  getUniqueIdentifier() const {
+      return m_uniqueIdentifier;
   }
 
   /**
@@ -199,6 +208,9 @@ recordTypeToString(const RecordType& type)
   case RecordType::RevocationRecord:
     return "Revocation";
 
+  case RecordType::GenesisRecord:
+    return "Genesis";
+
   default:
     return "Undefined";
   }
@@ -210,6 +222,7 @@ stringToRecordType(const std::string& type)
   if (type == "Generic") return RecordType::GenericRecord;
   else if (type == "Cert") return RecordType::CertificateRecord;
   else if (type == "Revocation") return RecordType::RevocationRecord;
+  else if (type == "Genesis") return RecordType::GenesisRecord;
   else return RecordType::BaseRecord;
 }
 

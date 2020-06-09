@@ -57,7 +57,7 @@ public:
     m_onRecordAppLogic = onRecordAppLogic;
   }
 
-private:
+protected:
   OnRecordAppLogic m_onRecordAppLogic;
 };
 
