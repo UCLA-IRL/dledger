@@ -204,13 +204,7 @@ LedgerImpl::onNewRecordNotification(const Interest& interest)
   std::mt19937_64 eng{std::random_device{}()};
   std::uniform_int_distribution<> dist{10, 100};
   m_scheduler.schedule(time::milliseconds(dist(eng)), [&, recordName] {
-    Interest recordInterest(recordName);
-    recordInterest.setCanBePrefix(false);
-    recordInterest.setMustBeFresh(true);
-    m_network.expressInterest(recordInterest,
-                              bind(&LedgerImpl::onFetchedRecord, this, _1, _2),
-                              bind(&LedgerImpl::onNack, this, _1, _2),
-                              bind(&LedgerImpl::onTimeout, this, _1));
+    fetchRecord(recordName);
   });
 }
 
