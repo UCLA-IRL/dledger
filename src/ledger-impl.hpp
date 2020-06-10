@@ -81,6 +81,13 @@ private:
   //Siqi's temp function
   void sendSyncInterest();
 
+  /**
+   * Check if the ancestor of the record is OK
+   * @param record the record to be checked
+   * @return true if the record is resolved; it is added or set as bad Record
+   */
+  bool checkRecordAncestor(const Record &record);
+
 private:
   Config m_config;
   Face& m_network;

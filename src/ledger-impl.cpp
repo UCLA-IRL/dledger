@@ -287,13 +287,9 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   try {
     // format check
     dataRecord = Record(data);
-    if (dataRecord.getPointersFromHeader().size() != m_config.precedingRecordNum) {
-        throw std::runtime_error("Less preceding record than expected");
-    }
-    if (RecordName(dataRecord.m_data->getFullName()).getApplicationCommonPrefix() !=
-    m_config.peerPrefix.getSubName(0, m_config.peerPrefix.size() - 1).toUri()){
-        throw std::runtime_error("Wrong App common prefix");
-    }
+    dataRecord.checkPointerValidity(
+            m_config.peerPrefix.getSubName(0, m_config.peerPrefix.size() - 1)
+            , m_config.precedingRecordNum);
   } catch (const std::exception& e) {
     std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
     return false;
@@ -459,43 +455,52 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       return;
   }
 
-  for (auto it = m_syncStack.begin(); it != m_syncStack.end();) {
-    std::cout << "- SyncStack size " << m_syncStack.size() << std::endl;
+  int stackSize = INT_MAX;
+  while (stackSize != m_syncStack.size()) {
+      stackSize = m_syncStack.size();
+      std::cout << "- SyncStack size " << m_syncStack.size() << std::endl;
+      for (auto it = m_syncStack.begin(); it != m_syncStack.end();) {
+          if (checkRecordAncestor(*it)) {
+              it = m_syncStack.erase(it);
+          } else {
+              // else, some preceding records are not yet fetched
+              it++;
+          }
+      }
+  }
+}
+
+bool LedgerImpl::checkRecordAncestor(const Record &record) {
     bool readyToAdd = true;
     bool badRecord = false;
-    if (it != m_syncStack.begin()) {
-      for (const auto& precedingRecordName : it->getPointersFromHeader()) {
+    for (const auto& precedingRecordName : record.getPointersFromHeader()) {
         if (m_badRecords.count(precedingRecordName) != 0) {
-          // has preceding record being bad record
-          badRecord = true;
-          break;
+            // has preceding record being bad record
+            badRecord = true;
+            break;
         }
         if (!hasRecord(precedingRecordName.toUri())) {
-          readyToAdd = false;
+            readyToAdd = false;
+            break;
         }
-      }
     }
     if (readyToAdd) {
-      if (checkValidityOfRecord(*(it->m_data))) {
-        std::cout << "- Good record. Will add record in to the ledger" << std::endl;
-        addToTailingRecord(*it);
-        m_backend.putRecord(it->m_data);
-        it = m_syncStack.erase(it);
-        continue;
-      }
-      else {
-        badRecord = true;
-      }
+        if (checkValidityOfRecord(*(record.m_data))) {
+            std::cout << "- Good record. Will add record in to the ledger" << std::endl;
+            addToTailingRecord(record);
+            m_backend.putRecord(record.m_data);
+            return true;
+        }
+        else {
+            badRecord = true;
+        }
     }
     if (badRecord) {
-      std::cout << "- Bad record. Will remove it and all its later records" << std::endl;
-      m_badRecords.insert(it->m_data->getFullName());
-      it = m_syncStack.erase(it);
-      continue;
+        std::cout << "- Bad record. Will remove it and all its later records" << std::endl;
+        m_badRecords.insert(record.m_data->getFullName());
+        return true;
     }
-    // else, some preceding records are not yet fetched
-    it++;
-  }
+    return false;
 }
 
 void

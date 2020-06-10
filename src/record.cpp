@@ -143,6 +143,25 @@ Record::bodyWireDecode(const Block& dataContent)
     }
 }
 
+void
+Record::checkPointerValidity(const Name& prefix, int numPointers){
+    if (getPointersFromHeader().size() != numPointers) {
+        throw std::runtime_error("Less preceding record than expected");
+    }
+    if (RecordName(m_data->getFullName()).getApplicationCommonPrefix() !=
+        prefix.toUri()){
+        throw std::runtime_error("Wrong App common prefix");
+    }
+
+    std::set<Name> nameSet;
+    for (const auto& pointer: getPointersFromHeader()) {
+        nameSet.insert(pointer);
+    }
+    if (nameSet.size() != numPointers) {
+        throw std::runtime_error("Repeated preceding Records");
+    }
+}
+
 GenericRecord::GenericRecord(const std::string& identifer)
     : Record(RecordType::GenericRecord, identifer)
 {
