@@ -119,6 +119,10 @@ LedgerImpl::createRecord(Record& record)
   int counter = 0;
   dumpList(m_tailRecords);
   for (const auto &tailRecord : recordList) {
+      if (tailRecord.second > m_config.appendDepth) {
+          std::cout << "-- tail records too deep. Failed\n";
+          break;
+      }
       if (!m_config.peerPrefix.isPrefixOf(tailRecord.first)) {
           record.addPointer(tailRecord.first);
           counter ++;
@@ -322,7 +326,11 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   std::cout << "- Step 4: Check Contribution Policy" << std::endl;
   for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
       if (m_tailRecords.count(precedingRecordName) != 0) {
-          std::cout << "-- Preceding record has reference " << m_tailRecords[precedingRecordName] << '\n';
+          std::cout << "-- Preceding record has depth " << m_tailRecords[precedingRecordName] << '\n';
+          if (m_tailRecords[precedingRecordName] > m_config.contributionDepth) {
+              std::cout << "--- Depth too deep " << m_tailRecords[precedingRecordName] << '\n';
+              return false;
+          }
       } else {
           if (m_backend.getRecord(precedingRecordName) != nullptr) {
               std::cout << "-- Preceding record too deep" << '\n';
@@ -508,22 +516,35 @@ LedgerImpl::addToTailingRecord(const Record& record) {
                   << std::endl;
         return;
     }
-    auto precedingRecordList = record.getPointersFromHeader();
-    for (const auto &precedingRecord : precedingRecordList) {
-        if (m_tailRecords.count(precedingRecord) != 0)
-            m_tailRecords[precedingRecord]++;
+
+    m_tailRecords[record.m_data->getFullName()] = 0;
+    m_backend.putRecord(record.m_data);
+
+    std::stack<Name> stack;
+    stack.push(record.m_data->getFullName());
+    while (!stack.empty()) {
+        RecordName currentRecordName(stack.top());
+        stack.pop();
+        if (currentRecordName.getRecordType() == GenesisRecord) continue;
+        Record currentRecord(m_backend.getRecord(currentRecordName));
+        auto precedingRecordList = currentRecord.getPointersFromHeader();
+        for (const auto &precedingRecord : precedingRecordList) {
+            if (m_tailRecords.count(precedingRecord) != 0 &&
+                    m_tailRecords[precedingRecord] <= m_tailRecords[currentRecordName]) {
+                m_tailRecords[precedingRecord] = m_tailRecords[currentRecordName] + 1;
+                stack.push(precedingRecord);
+            }
+        }
     }
 
     for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
-        if (it->second >= m_config.referenceRecordNum) {
+        if (it->second >= m_config.confirmDepth) {
             it = m_tailRecords.erase(it);
         } else {
             it++;
         }
     }
 
-    m_tailRecords[record.m_data->getFullName()] = 0;
-    m_backend.putRecord(record.m_data);
     dumpList(m_tailRecords);
 }
 

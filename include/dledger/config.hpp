@@ -27,9 +27,17 @@ public:
    */
   int precedingRecordNum = 2;
   /**
-   * The number of later records that can reference a preceding record.
+   * The maximum depth of record that can be referenced.
    */
-  int referenceRecordNum = precedingRecordNum;
+  int appendDepth = 3;
+  /**
+   * The maximum depth of record that can be allowed.
+   */
+  int contributionDepth = 4;
+  /**
+   * The depth of record that can be confirmed and removed from tracking.
+   */
+  int confirmDepth = 6;
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */
