@@ -326,9 +326,13 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   std::cout << "- Step 4: Check Contribution Policy" << std::endl;
   for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
       if (m_tailRecords.count(precedingRecordName) != 0) {
-          std::cout << "-- Preceding record has reference" << m_tailRecords[precedingRecordName] << '\n';
+          std::cout << "-- Preceding record has reference " << m_tailRecords[precedingRecordName] << '\n';
       } else {
-          std::cout << "-- Preceding record too deep" << '\n';
+          if (m_backend.getRecord(precedingRecordName) != nullptr) {
+              std::cout << "-- Preceding record too deep" << '\n';
+          } else {
+              std::cout << "-- Preceding record Not found" << '\n';
+          }
           //TODO enforce
           //return false;
       }
@@ -385,7 +389,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 void
 LedgerImpl::onRecordRequest(const Interest& interest)
 {
-  std::cout << "[LedgerImpl::onRecordRequest] Recieve Interest to Fetch Record" << std::endl;
+  std::cout << "[LedgerImpl::onRecordRequest] Receive Interest to Fetch Record" << std::endl;
   auto desiredData = m_backend.getRecord(interest.getName().toUri());
   if (desiredData) {
     std::cout << "- Found desired Data, reply it." << std::endl;
