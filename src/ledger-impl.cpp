@@ -329,8 +329,7 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
           } else {
               std::cout << "-- Preceding record Not found" << '\n';
           }
-          //TODO enforce
-          //return false;
+          return false;
       }
   }
 
