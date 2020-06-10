@@ -277,13 +277,9 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   try {
     // format check
     dataRecord = Record(data);
-    if (dataRecord.getPointersFromHeader().size() != m_config.precedingRecordNum) {
-        throw std::runtime_error("Less preceding record than expected");
-    }
-    if (RecordName(dataRecord.m_data->getFullName()).getApplicationCommonPrefix() !=
-    m_config.peerPrefix.getSubName(0, m_config.peerPrefix.size() - 1).toUri()){
-        throw std::runtime_error("Wrong App common prefix");
-    }
+    dataRecord.checkPointerValidity(
+            m_config.peerPrefix.getSubName(0, m_config.peerPrefix.size() - 1)
+            , m_config.precedingRecordNum);
   } catch (const std::exception& e) {
     std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
     return false;

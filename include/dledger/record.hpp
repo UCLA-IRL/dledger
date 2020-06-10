@@ -138,6 +138,9 @@ private:
   void
   bodyWireDecode(const Block& dataContent);
 
+  void
+  checkPointerValidity(const Name& prefix, int numPointers);
+
 private:
   /**
    * The TLV type of the record header in the NDN Data Content.
