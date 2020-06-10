@@ -75,6 +75,11 @@ private:
   fetchRecord(const Name& dataName);
   void
   onFetchedRecord(const Interest& interest, const Data& data);
+
+  /**
+   * Adds the record to backend and the tailing record map
+   * @param record
+   */
   void
   addToTailingRecord(const Record& record);
 

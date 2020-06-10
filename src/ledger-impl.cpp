@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <ndn-cxx/encoding/block-helpers.hpp>
 #include <ndn-cxx/security/signing-helpers.hpp>
+#include <utility>
 #include <ndn-cxx/security/verification-helpers.hpp>
 #include <ndn-cxx/util/sha256.hpp>
 #include <ndn-cxx/util/time.hpp>
@@ -43,7 +44,7 @@ LedgerImpl::LedgerImpl(const Config& config,
     , m_config(config)
     , m_keychain(keychain)
     , m_network(network)
-    , m_id(id)
+    , m_id(std::move(id))
     , m_scheduler(network.getIoService())
 {
   std::cout << "\nDLedger Initialization Start" << std::endl;
@@ -165,7 +166,6 @@ LedgerImpl::createRecord(Record& record)
 
   // add new record into the ledger
   addToTailingRecord(record);
-  m_backend.putRecord(data);
   return ReturnCode::noError();
 }
 
@@ -487,7 +487,6 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
         if (checkValidityOfRecord(*(record.m_data))) {
             std::cout << "- Good record. Will add record in to the ledger" << std::endl;
             addToTailingRecord(record);
-            m_backend.putRecord(record.m_data);
             return true;
         }
         else {
@@ -524,6 +523,7 @@ LedgerImpl::addToTailingRecord(const Record& record) {
     }
 
     m_tailRecords[record.m_data->getFullName()] = 0;
+    m_backend.putRecord(record.m_data);
     dumpList(m_tailRecords);
 }
 
