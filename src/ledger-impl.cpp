@@ -117,7 +117,6 @@ LedgerImpl::createRecord(Record& record)
   // fulfill the record content with preceding record IDs
   // removal of preceding record is done by addToTailingRecord() at the end
   int counter = 0;
-  dumpList(m_tailRecords);
   for (const auto &tailRecord : recordList) {
       if (tailRecord.second > m_config.appendDepth) {
           std::cout << "-- tail records too deep. Failed\n";
