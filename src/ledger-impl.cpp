@@ -119,7 +119,7 @@ LedgerImpl::createRecord(Record& record)
   int counter = 0;
   dumpList(m_tailRecords);
   for (const auto &tailRecord : recordList) {
-      if (tailRecord.second > m_config.appendDepth) {
+      if (tailRecord.second > m_config.appendWeight) {
           std::cout << "-- tail records too deep. Failed\n";
           break;
       }
@@ -327,7 +327,7 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
       if (m_tailRecords.count(precedingRecordName) != 0) {
           std::cout << "-- Preceding record has depth " << m_tailRecords[precedingRecordName] << '\n';
-          if (m_tailRecords[precedingRecordName] > m_config.contributionDepth) {
+          if (m_tailRecords[precedingRecordName] > m_config.contributionWeight) {
               std::cout << "--- Depth too deep " << m_tailRecords[precedingRecordName] << '\n';
               return false;
           }
@@ -520,6 +520,7 @@ LedgerImpl::addToTailingRecord(const Record& record) {
     m_tailRecords[record.m_data->getFullName()] = 0;
     m_backend.putRecord(record.m_data);
 
+    std::set<Name> parentRecords;
     std::stack<Name> stack;
     stack.push(record.m_data->getFullName());
     while (!stack.empty()) {
@@ -530,15 +531,19 @@ LedgerImpl::addToTailingRecord(const Record& record) {
         auto precedingRecordList = currentRecord.getPointersFromHeader();
         for (const auto &precedingRecord : precedingRecordList) {
             if (m_tailRecords.count(precedingRecord) != 0 &&
-                    m_tailRecords[precedingRecord] <= m_tailRecords[currentRecordName]) {
-                m_tailRecords[precedingRecord] = m_tailRecords[currentRecordName] + 1;
+                parentRecords.count(precedingRecord) == 0) {
+                parentRecords.insert(precedingRecord);
                 stack.push(precedingRecord);
             }
         }
     }
 
+    for (const auto & r : parentRecords) {
+        m_tailRecords[r] ++;
+    }
+
     for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
-        if (it->second >= m_config.confirmDepth) {
+        if (it->second >= m_config.confirmWeight) {
             it = m_tailRecords.erase(it);
         } else {
             it++;

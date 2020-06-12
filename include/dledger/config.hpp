@@ -29,15 +29,15 @@ public:
   /**
    * The maximum depth of record that can be referenced.
    */
-  int appendDepth = 3;
+  int appendWeight = 3;
   /**
    * The maximum depth of record that can be allowed.
    */
-  int contributionDepth = 4;
+  int contributionWeight = 4;
   /**
    * The depth of record that can be confirmed and removed from tracking.
    */
-  int confirmDepth = 6;
+  int confirmWeight = 10;
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */
