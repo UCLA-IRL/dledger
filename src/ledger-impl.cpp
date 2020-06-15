@@ -51,9 +51,14 @@ LedgerImpl::LedgerImpl(const Config& config,
   //****STEP 1****
   // Initialize Database
   std::string dbDir = "/tmp/dledger-db/" + readString(m_config.peerPrefix.get(-1));
-  m_backend.initDatabase(dbDir);
-  std::cout << "STEP 1" << std::endl
-            << "- LevelDB at " << dbDir << " has been initialized." << std::endl;
+  if (m_backend.initDatabase(dbDir)) {
+      std::cout << "STEP 1" << std::endl
+                << "- LevelDB at " << dbDir << " has been initialized." << std::endl;
+  } else {
+      std::cout << "STEP 1" << std::endl
+                << "- LevelDB at " << dbDir << " Failed to initialize." << std::endl;
+      BOOST_THROW_EXCEPTION(std::runtime_error("fail to initialize db"));
+  }
 
   //****STEP 2****
   // Register the prefix to local NFD

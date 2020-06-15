@@ -23,7 +23,12 @@ public:
   void
   deleteRecord(const Name& recordName);
 
-  void
+  /**
+   * Initialize the connection to database
+   * @param dbDir
+   * @return true if successful
+   */
+  bool
   initDatabase(const std::string& dbDir);
 
 private:
