@@ -326,9 +326,9 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   std::cout << "- Step 4: Check Contribution Policy" << std::endl;
   for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
       if (m_tailRecords.count(precedingRecordName) != 0) {
-          std::cout << "-- Preceding record has depth " << m_tailRecords[precedingRecordName].size() << '\n';
+          std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].size() << '\n';
           if (m_tailRecords[precedingRecordName].size() > m_config.contributionWeight) {
-              std::cout << "--- Depth too deep " << m_tailRecords[precedingRecordName].size() << '\n';
+              std::cout << "--- Weight too high " << m_tailRecords[precedingRecordName].size() << '\n';
               return false;
           }
       } else {
@@ -530,15 +530,16 @@ LedgerImpl::addToTailingRecord(const Record& record) {
         auto precedingRecordList = currentRecord.getPointersFromHeader();
         for (const auto &precedingRecord : precedingRecordList) {
             if (m_tailRecords.count(precedingRecord) != 0 &&
-                m_tailRecords[precedingRecord].insert(currentRecordName.getProducerID()).second == true) {
+                m_tailRecords[precedingRecord].insert(record.getProducerID()).second) {
                 stack.push(precedingRecord);
+                std::cout << record.getProducerID() << " confirms " << precedingRecord.toUri() << std::endl;
             }
         }
     }
 
     for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
         if (it->second.size() >= m_config.confirmWeight) {
-            std::cout << "confirms " << it->first.toUri() << std::endl;
+            std::cout << "confirmed " << it->first.toUri() << std::endl;
             it = m_tailRecords.erase(it);
         } else {
             it++;
