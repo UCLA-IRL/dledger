@@ -27,17 +27,17 @@ public:
    */
   int precedingRecordNum = 2;
   /**
-   * The maximum depth of record that can be referenced.
+   * The maximum weight of record that can be referenced.
    */
-  int appendWeight = 3;
+  int appendWeight = 1;
   /**
-   * The maximum depth of record that can be allowed.
+   * The maximum weight of record that can be allowed.
    */
-  int contributionWeight = 4;
+  int contributionWeight = 2;
   /**
    * The depth of record that can be confirmed and removed from tracking.
    */
-  int confirmWeight = 10;
+  int confirmWeight = 3;
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */
