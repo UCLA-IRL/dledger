@@ -29,11 +29,11 @@ dumpList(const std::vector<Name>& list)
 }
 
 void
-dumpList(const std::map<Name, int>& weight)
+LedgerImpl::dumpList(const std::map<Name, TailingRecordState>& weight)
 {
     std::cout << "Dump " << weight.size() << " Tailing Records" << std::endl;
   for (const auto& item : weight) {
-    std::cout << item.second << "\t" << item.first.toUri() << std::endl;
+    std::cout << (item.second.referenceVerified ? "OK " : "NO ") << item.second.depth << "\t" << item.first.toUri() << std::endl;
   }
   std::cout << std::endl << std::endl;
 }
@@ -85,7 +85,7 @@ LedgerImpl::LedgerImpl(const Config& config,
     data->setContent(contentBlock);
     m_keychain.sign(*data, security::signingWithSha256());
     m_backend.putRecord(data);
-    m_tailRecords[data->getFullName()] = 0;
+    m_tailRecords[data->getFullName()] = TailingRecordState{true, 0};
   }
   std::cout << "STEP 3" << std::endl
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
@@ -110,7 +110,8 @@ LedgerImpl::createRecord(Record& record)
 
   std::vector<std::pair<Name, int>> recordList;
   for (const auto &item : m_tailRecords) {
-    recordList.emplace_back(item);
+      if (item.second.referenceVerified)
+            recordList.emplace_back(item.first, item.second.depth);
   }
 
   // randomly shuffle the tailing record list
@@ -174,7 +175,7 @@ LedgerImpl::createRecord(Record& record)
   m_network.expressInterest(interest, nullptr, bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
 
   // add new record into the ledger
-  addToTailingRecord(record);
+  addToTailingRecord(record, true);
   return ReturnCode::noError();
 }
 
@@ -258,7 +259,7 @@ void LedgerImpl::sendSyncInterest() {
     Interest syncInterest(syncInterestName);
     Block appParam = makeEmptyBlock(tlv::ApplicationParameters);
     for (const auto &item : m_tailRecords) {
-        if (item.second == 0)
+        if (item.second.depth == 0)
             appParam.push_back(item.first.wireEncode());
     }
     appParam.parse();
@@ -288,9 +289,9 @@ LedgerImpl::startPeriodicAddRecord()
 }
 
 bool
-LedgerImpl::checkValidityOfRecord(const Data& data)
+LedgerImpl::checkSyntaxValidityOfRecord(const Data& data)
 {
-  std::cout << "[LedgerImpl::checkValidityOfRecord] Check the validity of the record" << std::endl;
+  std::cout << "[LedgerImpl::checkSyntaxValidityOfRecord] Check the format validity of the record" << std::endl;
   std::cout << "- Step 1: Check whether it is a valid record following DLedger record spec" << std::endl;
   Record dataRecord;
   try {
@@ -328,32 +329,47 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
       }
   }
 
-  std::cout << "- Step 4: Check Contribution Policy" << std::endl;
-  for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
-      if (m_tailRecords.count(precedingRecordName) != 0) {
-          std::cout << "-- Preceding record has depth " << m_tailRecords[precedingRecordName] << '\n';
-          if (m_tailRecords[precedingRecordName] > m_config.contributionDepth) {
-              std::cout << "--- Depth too deep " << m_tailRecords[precedingRecordName] << '\n';
-              return false;
-          }
-      } else {
-          if (m_backend.getRecord(precedingRecordName) != nullptr) {
-              std::cout << "-- Preceding record too deep" << '\n';
-          } else {
-              std::cout << "-- Preceding record Not found" << '\n';
-          }
-          return false;
-      }
-  }
+    std::cout << "- All Syntax check Steps finished. Good Record" << std::endl;
+    return true;
+}
 
-  std::cout << "- Step 5: Check App Logic" << std::endl;
-  if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
-      std::cout << "-- App Logic check failed" << std::endl;
-      return false;
-  }
+bool LedgerImpl::checkReferenceValidityOfRecord(const Data& data) {
+    std::cout << "[LedgerImpl::checkReferenceValidityOfRecord] Check the reference validity of the record" << std::endl;
+    Record dataRecord;
+    try {
+        // format check
+        dataRecord = Record(data);
+    } catch (const std::exception& e) {
+        std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
+        return false;
+    }
 
-  std::cout << "- All Steps finished. Good Record" << std::endl;
-  return true;
+    std::cout << "- Step 5: Check Contribution Policy" << std::endl;
+    for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
+        if (m_tailRecords.count(precedingRecordName) != 0) {
+            std::cout << "-- Preceding record has depth " << m_tailRecords[precedingRecordName].depth << '\n';
+            if (m_tailRecords[precedingRecordName].depth > m_config.contributionDepth) {
+                std::cout << "--- Depth too deep " << m_tailRecords[precedingRecordName].depth << '\n';
+                return false;
+            }
+        } else {
+            if (m_backend.getRecord(precedingRecordName) != nullptr) {
+                std::cout << "-- Preceding record too deep" << '\n';
+            } else {
+                std::cout << "-- Preceding record Not found" << '\n';
+            }
+            return false;
+        }
+    }
+
+    std::cout << "- Step 6: Check App Logic" << std::endl;
+    if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
+        std::cout << "-- App Logic check failed" << std::endl;
+        return false;
+    }
+
+    std::cout << "- All Reference Check Steps finished. Good Record" << std::endl;
+    return true;
 }
 
 void
@@ -377,7 +393,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
   for (const auto& item : appParam.elements()) {
     Name recordName(item);
     std::cout << "-- " << recordName.toUri() << "\n";
-    if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName] == 0) {
+    if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName].depth == 0) {
       std::cout << "--- This record is already in our tailing records \n";
     }
     else if (m_backend.getRecord(recordName)) {
@@ -408,7 +424,7 @@ LedgerImpl::onRecordRequest(const Interest& interest)
 void
 LedgerImpl::fetchRecord(const Name& recordName)
 {
-  std::cout << "[LedgerImpl::fetchRecordForSync] Fetch the missing record" << std::endl;
+  std::cout << "[LedgerImpl::fetchRecord] Fetch the missing record" << std::endl;
   Interest interestForRecord(recordName);
   interestForRecord.setCanBePrefix(false);
   interestForRecord.setMustBeFresh(true);
@@ -442,6 +458,10 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       Record record(data);
       if (record.getType() == RecordType::GenesisRecord) {
           throw std::runtime_error("should not get Genesis record");
+      }
+
+      if (!checkSyntaxValidityOfRecord(data)) {
+          throw std::runtime_error("Record Syntax error");
       }
 
       m_syncStack.emplace_back(record, time::system_clock::now());
@@ -488,6 +508,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
 bool LedgerImpl::checkRecordAncestor(const Record &record) {
     bool readyToAdd = true;
     bool badRecord = false;
+    bool ancestorGoodReference = true;
     for (const auto& precedingRecordName : record.getPointersFromHeader()) {
         if (m_badRecords.count(precedingRecordName) != 0) {
             // has preceding record being bad record
@@ -498,16 +519,14 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
             readyToAdd = false;
             break;
         }
+        if (m_tailRecords.count(precedingRecordName) == 1 && !m_tailRecords[precedingRecordName].referenceVerified) {
+            ancestorGoodReference = false;
+        }
     }
     if (readyToAdd) {
-        if (checkValidityOfRecord(*(record.m_data))) {
-            std::cout << "- Good record. Will add record in to the ledger" << std::endl;
-            addToTailingRecord(record);
-            return true;
-        }
-        else {
-            badRecord = true;
-        }
+        std::cout << "- Good record. Will add record in to the ledger" << std::endl;
+        addToTailingRecord(record, ancestorGoodReference && checkReferenceValidityOfRecord(*(record.m_data)));
+        return true;
     }
     if (badRecord) {
         std::cout << "- Bad record. Will remove it and all its later records" << std::endl;
@@ -518,14 +537,14 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
 }
 
 void
-LedgerImpl::addToTailingRecord(const Record& record) {
+LedgerImpl::addToTailingRecord(const Record& record, bool referenceVerified) {
     if (m_tailRecords.count(record.m_data->getFullName()) != 0) {
         std::cout << "[LedgerImpl::addToTailingRecord] Repeated add record: " << record.m_data->getFullName()
                   << std::endl;
         return;
     }
 
-    m_tailRecords[record.m_data->getFullName()] = 0;
+    m_tailRecords[record.m_data->getFullName()] = TailingRecordState{referenceVerified, 0};
     m_backend.putRecord(record.m_data);
 
     std::stack<Name> stack;
@@ -538,15 +557,15 @@ LedgerImpl::addToTailingRecord(const Record& record) {
         auto precedingRecordList = currentRecord.getPointersFromHeader();
         for (const auto &precedingRecord : precedingRecordList) {
             if (m_tailRecords.count(precedingRecord) != 0 &&
-                    m_tailRecords[precedingRecord] <= m_tailRecords[currentRecordName]) {
-                m_tailRecords[precedingRecord] = m_tailRecords[currentRecordName] + 1;
+                    m_tailRecords[precedingRecord].depth <= m_tailRecords[currentRecordName].depth) {
+                m_tailRecords[precedingRecord].depth = m_tailRecords[currentRecordName].depth + 1;
                 stack.push(precedingRecord);
             }
         }
     }
 
     for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
-        if (it->second >= m_config.confirmDepth) {
+        if (it->second.depth >= m_config.confirmDepth) {
             it = m_tailRecords.erase(it);
         } else {
             it++;
@@ -561,6 +580,7 @@ Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& fac
 {
   return std::make_unique<LedgerImpl>(config, keychain, face, id);
 }
+
 
 //===============================================================================
 

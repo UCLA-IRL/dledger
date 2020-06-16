@@ -50,7 +50,9 @@ private:
   startPeriodicAddRecord();
 
   bool
-  checkValidityOfRecord(const Data& data);
+  checkSyntaxValidityOfRecord(const Data& data);
+  bool
+  checkReferenceValidityOfRecord(const Data& data);
 
   // Interest format: each <> is only one name component
   // /<multicast_prefix>/NOTIF/<Full Name of Record>
@@ -80,10 +82,15 @@ private:
    * @param record
    */
   void
-  addToTailingRecord(const Record& record);
+  addToTailingRecord(const Record& record, bool verified);
 
   //Siqi's temp function
+  struct TailingRecordState{
+      bool referenceVerified;
+      int depth;
+  };
   void sendSyncInterest();
+  void dumpList(const std::map<Name, TailingRecordState>& weight);
 
   /**
    * Check if the ancestor of the record is OK
@@ -99,7 +106,8 @@ private:
   Scheduler m_scheduler;
 
   Backend m_backend;
-  std::map<Name, int> m_tailRecords;
+
+  std::map<Name, TailingRecordState> m_tailRecords;
 
   std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
   security::KeyChain& m_keychain;
