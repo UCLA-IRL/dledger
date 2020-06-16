@@ -513,6 +513,7 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
         if (m_badRecords.count(precedingRecordName) != 0) {
             // has preceding record being bad record
             badRecord = true;
+            readyToAdd = false;
             break;
         }
         if (!hasRecord(precedingRecordName.toUri())) {
@@ -523,7 +524,7 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
             ancestorGoodReference = false;
         }
     }
-    if (readyToAdd) {
+    if (!badRecord && readyToAdd) {
         std::cout << "- Good record. Will add record in to the ledger" << std::endl;
         addToTailingRecord(record, ancestorGoodReference && checkReferenceValidityOfRecord(*(record.m_data)));
         return true;
