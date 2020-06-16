@@ -16,6 +16,7 @@ namespace dledger {
 
 const static size_t DEFAULT_GENESIS_BLOCKS = 10;
 const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds(1);
+const static time::seconds ANCESTOR_FETCH_TIMEOUT = time::seconds(10);
 
 void
 dumpList(const std::vector<Name>& list)
@@ -431,7 +432,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       return;
   }
   for (const auto& stackRecord : m_syncStack) {
-      if (stackRecord.getRecordName() == data.getFullName().toUri()) {
+      if (stackRecord.first.getRecordName() == data.getFullName().toUri()) {
           std::cout << "- Record in sync stack already. Ignore" << std::endl;
           return;
       }
@@ -443,7 +444,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
           throw std::runtime_error("should not get Genesis record");
       }
 
-      m_syncStack.push_back(record);
+      m_syncStack.emplace_back(record, time::system_clock::now());
       auto precedingRecordNames = record.getPointersFromHeader();
       bool allPrecedingRecordsInLedger = true;
       for (const auto &precedingRecordName : precedingRecordNames) {
@@ -471,7 +472,10 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       stackSize = m_syncStack.size();
       std::cout << "- SyncStack size " << m_syncStack.size() << std::endl;
       for (auto it = m_syncStack.begin(); it != m_syncStack.end();) {
-          if (checkRecordAncestor(*it)) {
+          if (checkRecordAncestor(it->first)) {
+              it = m_syncStack.erase(it);
+          } else if(time::abs(time::system_clock::now() - it->second) > ANCESTOR_FETCH_TIMEOUT){
+              std::cout << "-- Timeout on fetching ancestor for " << it->first.getRecordName() << std::endl;
               it = m_syncStack.erase(it);
           } else {
               // else, some preceding records are not yet fetched

@@ -13,7 +13,6 @@
 #include <ndn-cxx/util/io.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
 #include <stack>
-#include <unordered_set>
 
 
 using namespace ndn;
@@ -107,10 +106,10 @@ private:
   std::map<Name, Name> m_peerCertificates; // first: name of the peer, second: name of the certificate record
 
   // Zhiyi's temp member variable
-  std::list<Record> m_syncStack;
+  std::list<std::pair<Record, time::system_clock::TimePoint>> m_syncStack;
 
   // Siqi's temp member variable
-  std::unordered_set<Name> m_badRecords;
+  std::set<Name> m_badRecords;
 };
 
 // class Ledger
