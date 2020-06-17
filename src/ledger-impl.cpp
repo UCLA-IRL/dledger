@@ -85,7 +85,7 @@ LedgerImpl::LedgerImpl(const Config& config,
     data->setContent(contentBlock);
     m_keychain.sign(*data, security::signingWithSha256());
     m_backend.putRecord(data);
-    m_tailRecords[data->getFullName()] = TailingRecordState{true, 0};
+    m_tailRecords[data->getFullName()] = TailingRecordState{true, 0, true};
   }
   std::cout << "STEP 3" << std::endl
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
@@ -508,7 +508,6 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
 bool LedgerImpl::checkRecordAncestor(const Record &record) {
     bool readyToAdd = true;
     bool badRecord = false;
-    bool ancestorGoodReference = true;
     for (const auto& precedingRecordName : record.getPointersFromHeader()) {
         if (m_badRecords.count(precedingRecordName) != 0) {
             // has preceding record being bad record
@@ -520,13 +519,10 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
             readyToAdd = false;
             break;
         }
-        if (m_tailRecords.count(precedingRecordName) == 1 && !m_tailRecords[precedingRecordName].referenceVerified) {
-            ancestorGoodReference = false;
-        }
     }
     if (!badRecord && readyToAdd) {
         std::cout << "- Good record. Will add record in to the ledger" << std::endl;
-        addToTailingRecord(record, ancestorGoodReference && checkReferenceValidityOfRecord(*(record.m_data)));
+        addToTailingRecord(record, checkReferenceValidityOfRecord(*(record.m_data)));
         return true;
     }
     if (badRecord) {
@@ -538,16 +534,30 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
 }
 
 void
-LedgerImpl::addToTailingRecord(const Record& record, bool referenceVerified) {
+LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     if (m_tailRecords.count(record.m_data->getFullName()) != 0) {
         std::cout << "[LedgerImpl::addToTailingRecord] Repeated add record: " << record.m_data->getFullName()
                   << std::endl;
         return;
     }
 
-    m_tailRecords[record.m_data->getFullName()] = TailingRecordState{referenceVerified, 0};
+    //verify if ancestor has correct reference policy
+    bool refVerified = verified;
+    if (verified) {
+        for (const auto &precedingRecord : record.getPointersFromHeader()) {
+            if (m_tailRecords.count(precedingRecord) != 0 &&
+                !m_tailRecords[precedingRecord].referenceVerified) {
+                refVerified = false;
+                break;
+            }
+        }
+    }
+
+    //add record to tailing record
+    m_tailRecords[record.m_data->getFullName()] = TailingRecordState{refVerified, 0, verified};
     m_backend.putRecord(record.m_data);
 
+    //update depth of the system
     std::stack<Name> stack;
     stack.push(record.m_data->getFullName());
     while (!stack.empty()) {
@@ -565,11 +575,33 @@ LedgerImpl::addToTailingRecord(const Record& record, bool referenceVerified) {
         }
     }
 
+    //remove deep records
+    bool referenceNeedUpdate = false;
     for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
         if (it->second.depth >= m_config.confirmDepth) {
+            if (!it->second.referenceVerified) referenceNeedUpdate = true;
             it = m_tailRecords.erase(it);
         } else {
             it++;
+        }
+    }
+
+    //update reference policy
+    while (referenceNeedUpdate) {
+        referenceNeedUpdate = false;
+        for (auto &r : m_tailRecords) {
+            if (!r.second.referenceVerified && r.second.recordPolicyVerified) {
+                bool referenceVerified = true;
+                Record currentRecord(m_backend.getRecord(r.first));
+                for (const auto &precedingRecord : currentRecord.getPointersFromHeader()) {
+                    if (m_tailRecords.count(precedingRecord) != 0 &&
+                        !m_tailRecords[precedingRecord].referenceVerified) {
+                        referenceVerified = false;
+                    }
+                }
+                r.second.referenceVerified = referenceVerified;
+                if (referenceVerified) referenceNeedUpdate = true;
+            }
         }
     }
 

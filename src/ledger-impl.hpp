@@ -88,6 +88,7 @@ private:
   struct TailingRecordState{
       bool referenceVerified;
       int depth;
+      bool recordPolicyVerified;
   };
   void sendSyncInterest();
   void dumpList(const std::map<Name, TailingRecordState>& weight);
