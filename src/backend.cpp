@@ -57,16 +57,18 @@ Backend::deleteRecord(const Name& recordName)
   }
 }
 
-void
+bool
 Backend::initDatabase(const std::string& dbDir)
 {
   leveldb::Options options;
   options.create_if_missing = true;
   leveldb::Status status = leveldb::DB::Open(options, dbDir, &m_db);
-  if (false == status.ok()) {
-    std::cerr << "Unable to open/create test database " << dbDir << std::endl;
+  if (!status.ok()) {
+    std::cerr << "Unable to open/create database " << dbDir << std::endl;
     std::cerr << status.ToString() << std::endl;
+    return false;
   }
+  return true;
 }
 
 }  // namespace dledger
