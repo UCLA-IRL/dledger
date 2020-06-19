@@ -326,6 +326,12 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
         }
     }
 
+    std::cout << "- Step 5: Check App Logic" << std::endl;
+    if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
+        std::cout << "-- App Logic check failed" << std::endl;
+        return false;
+    }
+
     std::cout << "- All Syntax check Steps finished. Good Record" << std::endl;
     return true;
 }
@@ -341,7 +347,7 @@ bool LedgerImpl::checkReferenceValidityOfRecord(const Data& data) {
         return false;
     }
 
-    std::cout << "- Step 5: Check Contribution Policy" << std::endl;
+    std::cout << "- Step 6: Check Contribution Policy" << std::endl;
     for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
         if (m_tailRecords.count(precedingRecordName) != 0) {
             std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].refSet.size() << '\n';
@@ -357,12 +363,6 @@ bool LedgerImpl::checkReferenceValidityOfRecord(const Data& data) {
             }
             return false;
         }
-    }
-
-    std::cout << "- Step 6: Check App Logic" << std::endl;
-    if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
-        std::cout << "-- App Logic check failed" << std::endl;
-        return false;
     }
 
     std::cout << "- All Reference Check Steps finished. Good Record" << std::endl;
