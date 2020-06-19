@@ -39,6 +39,10 @@ public:
    */
   int confirmWeight = 3;
   /**
+   * Whether Contribution policy is checked in the verification
+   */
+   bool usingContributionPolicy = false;
+  /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */
   Name multicastPrefix;
