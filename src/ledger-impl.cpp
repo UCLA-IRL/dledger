@@ -28,11 +28,11 @@ dumpList(const std::vector<Name>& list)
 }
 
 void
-dumpList(const std::map<Name, int>& weight)
+dumpList(const std::map<Name, std::set<std::string>>& weight)
 {
     std::cout << "Dump " << weight.size() << " Tailing Records" << std::endl;
   for (const auto& item : weight) {
-    std::cout << item.second << "\t" << item.first.toUri() << std::endl;
+    std::cout << item.second.size() << "\t" << item.first.toUri() << std::endl;
   }
   std::cout << std::endl << std::endl;
 }
@@ -84,7 +84,7 @@ LedgerImpl::LedgerImpl(const Config& config,
     data->setContent(contentBlock);
     m_keychain.sign(*data, security::signingWithSha256());
     m_backend.putRecord(data);
-    m_tailRecords[data->getFullName()] = 0;
+    m_tailRecords[data->getFullName()] = std::set<std::string>();
   }
   std::cout << "STEP 3" << std::endl
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
@@ -109,7 +109,7 @@ LedgerImpl::createRecord(Record& record)
 
   std::vector<std::pair<Name, int>> recordList;
   for (const auto &item : m_tailRecords) {
-    recordList.emplace_back(item);
+    recordList.emplace_back(std::pair<Name, int>(item.first, item.second.size()));
   }
 
   // randomly shuffle the tailing record list
@@ -123,7 +123,7 @@ LedgerImpl::createRecord(Record& record)
   // removal of preceding record is done by addToTailingRecord() at the end
   int counter = 0;
   for (const auto &tailRecord : recordList) {
-      if (tailRecord.second > m_config.appendDepth) {
+      if (tailRecord.second > m_config.appendWeight) {
           std::cout << "-- tail records too deep. Failed\n";
           break;
       }
@@ -257,7 +257,7 @@ void LedgerImpl::sendSyncInterest() {
     Interest syncInterest(syncInterestName);
     Block appParam = makeEmptyBlock(tlv::ApplicationParameters);
     for (const auto &item : m_tailRecords) {
-        if (item.second == 0)
+        if (item.second.empty())
             appParam.push_back(item.first.wireEncode());
     }
     appParam.parse();
@@ -330,9 +330,9 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   std::cout << "- Step 4: Check Contribution Policy" << std::endl;
   for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
       if (m_tailRecords.count(precedingRecordName) != 0) {
-          std::cout << "-- Preceding record has depth " << m_tailRecords[precedingRecordName] << '\n';
-          if (m_tailRecords[precedingRecordName] > m_config.contributionDepth) {
-              std::cout << "--- Depth too deep " << m_tailRecords[precedingRecordName] << '\n';
+          std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].size() << '\n';
+          if (m_tailRecords[precedingRecordName].size() > m_config.contributionWeight) {
+              std::cout << "--- Weight too high " << m_tailRecords[precedingRecordName].size() << '\n';
               return false;
           }
       } else {
@@ -376,7 +376,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
   for (const auto& item : appParam.elements()) {
     Name recordName(item);
     std::cout << "-- " << recordName.toUri() << "\n";
-    if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName] == 0) {
+    if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName].empty()) {
       std::cout << "--- This record is already in our tailing records \n";
     }
     else if (m_backend.getRecord(recordName)) {
@@ -522,7 +522,7 @@ LedgerImpl::addToTailingRecord(const Record& record) {
         return;
     }
 
-    m_tailRecords[record.m_data->getFullName()] = 0;
+    m_tailRecords[record.m_data->getFullName()] = std::set<std::string>();
     m_backend.putRecord(record.m_data);
 
     std::stack<Name> stack;
@@ -535,15 +535,16 @@ LedgerImpl::addToTailingRecord(const Record& record) {
         auto precedingRecordList = currentRecord.getPointersFromHeader();
         for (const auto &precedingRecord : precedingRecordList) {
             if (m_tailRecords.count(precedingRecord) != 0 &&
-                    m_tailRecords[precedingRecord] <= m_tailRecords[currentRecordName]) {
-                m_tailRecords[precedingRecord] = m_tailRecords[currentRecordName] + 1;
+                m_tailRecords[precedingRecord].insert(record.getProducerID()).second) {
                 stack.push(precedingRecord);
+                std::cout << record.getProducerID() << " confirms " << precedingRecord.toUri() << std::endl;
             }
         }
     }
 
     for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
-        if (it->second >= m_config.confirmDepth) {
+        if (it->second.size() >= m_config.confirmWeight) {
+            std::cout << "confirmed " << it->first.toUri() << std::endl;
             it = m_tailRecords.erase(it);
         } else {
             it++;

@@ -100,7 +100,7 @@ private:
   Scheduler m_scheduler;
 
   Backend m_backend;
-  std::map<Name, int> m_tailRecords;
+  std::map<Name, std::set<std::string>> m_tailRecords;
 
   std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
   security::KeyChain& m_keychain;
