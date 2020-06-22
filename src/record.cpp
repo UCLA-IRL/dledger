@@ -97,23 +97,24 @@ Record::headerWireEncode(Block& block) const
 };
 
 void
-Record::headerWireDecode(const Block& dataContent)
-{
-  m_recordPointers.clear();
-  dataContent.parse();
-    const auto& headerBlock = dataContent.get(T_RecordHeader);
+Record::headerWireDecode(const Block& dataContent) {
+    m_recordPointers.clear();
+    dataContent.parse();
+    const auto &headerBlock = dataContent.get(T_RecordHeader);
     headerBlock.parse();
     Name pointer;
-    for (const auto& item : headerBlock.elements()) {
-      if (item.type() == tlv::Name) {
-       try{
-         pointer.wireDecode(item);
-       } catch (const tlv::Error& e){
-         std::cout << ( e.what() );
-       }
-        
-        m_recordPointers.push_back(pointer);
-      }
+    for (const auto &item : headerBlock.elements()) {
+        if (item.type() == tlv::Name) {
+            try {
+                pointer.wireDecode(item);
+            } catch (const tlv::Error &e) {
+                std::cout << (e.what());
+            }
+
+            m_recordPointers.push_back(pointer);
+        } else {
+            BOOST_THROW_EXCEPTION(std::runtime_error("Bad header item type"));
+        }
     }
 }
 
@@ -130,16 +131,17 @@ Record::bodyWireEncode(Block& block) const
 };
 
 void
-Record::bodyWireDecode(const Block& dataContent)
-{
-  m_contentItems.clear();
-  dataContent.parse();
-    const auto& contentBlock = dataContent.get(T_RecordContent);
+Record::bodyWireDecode(const Block& dataContent) {
+    m_contentItems.clear();
+    dataContent.parse();
+    const auto &contentBlock = dataContent.get(T_RecordContent);
     contentBlock.parse();
-    for (const auto& item : contentBlock.elements()) {
-      if (item.type() == T_ContentItem) {
-        m_contentItems.push_back(readString(item));
-      }
+    for (const auto &item : contentBlock.elements()) {
+        if (item.type() == T_ContentItem) {
+            m_contentItems.push_back(readString(item));
+        } else {
+            BOOST_THROW_EXCEPTION(std::runtime_error("Bad body item type"));
+        }
     }
 }
 
@@ -175,6 +177,7 @@ CertificateRecord::CertificateRecord(const std::string& identifer)
 void
 CertificateRecord::addCertificateItem(const security::v2::Certificate& certificate)
 {
+
 }
 
 const std::list<security::v2::Certificate>&
