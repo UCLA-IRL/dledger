@@ -43,7 +43,7 @@ Config::Config(const std::string& multicastPrefix, const std::string& peerPrefix
     : multicastPrefix(multicastPrefix),
       peerPrefix(peerPrefix)
 {
-    BOOST_ASSERT(appendWeight <= contributionWeight && contributionWeight < confirmWeight);
+    BOOST_ASSERT(appendWeight <= contributionWeight);
 }
 
 }  // namespace dledger

@@ -11,6 +11,8 @@
 #include <random>
 #include <sstream>
 
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
 using namespace ndn;
 namespace dledger {
 
@@ -545,7 +547,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     m_tailRecords[record.m_data->getFullName()] = TailingRecordState{refVerified, std::set<std::string>(), verified};
     m_backend.putRecord(record.m_data);
 
-    //update depth of the system
+    //update weight of the system
     std::stack<Name> stack;
     stack.push(record.m_data->getFullName());
     while (!stack.empty()) {
@@ -564,11 +566,14 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     }
 
     //remove deep records
+    int removeWeight = MAX(m_config.contributionWeight + 1, m_config.confirmWeight);
     bool referenceNeedUpdate = false;
     for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
         if (it->second.refSet.size() >= m_config.confirmWeight) {
             std::cout << "confirmed " << it->first.toUri() << std::endl;
             if (!it->second.referenceVerified) referenceNeedUpdate = true;
+        }
+        if (it->second.refSet.size() >= removeWeight) {
             it = m_tailRecords.erase(it);
         } else {
             it++;
@@ -583,7 +588,8 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
                 bool referenceVerified = true;
                 Record currentRecord(m_backend.getRecord(r.first));
                 for (const auto &precedingRecord : currentRecord.getPointersFromHeader()) {
-                    if (m_tailRecords.count(precedingRecord) != 0 &&
+                    if ((m_tailRecords.count(precedingRecord) &&
+                            m_tailRecords[precedingRecord].refSet.size() < m_config.confirmWeight) &&
                         !m_tailRecords[precedingRecord].referenceVerified) {
                         referenceVerified = false;
                     }

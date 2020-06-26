@@ -36,9 +36,9 @@ public:
    */
   int contributionWeight = 2;
   /**
-   * The depth of record that can be confirmed and removed from tracking.
+   * The weight of record that can be confirmed and be appended without contribution policy.
    */
-  int confirmWeight = 3;
+  int confirmWeight = 2;
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */
