@@ -25,22 +25,18 @@ makeData(const std::string& name, const std::string& content)
   return data;
 }
 
-bool
-testGenData(std::string signerId)
-{
- //Make config with Config::Config(const std::string& multicastPrefix, const std::string& peerPrefix)
- //a keychain 
- //a Face
- //this makes a ledgerImpl, then have it produce data, send out sync requests periodically
- //that's really it
+void periodicAddRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler) {
+    Record record(RecordType::GenericRecord, std::to_string(std::rand()));
+    record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
+    record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
+    record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
+    ReturnCode result = ledger->createRecord(record);
+    if (!result.success()) {
+        std::cout << "- Adding record error : " << result.what() << std::endl;
+    }
 
-
-  // auto ledger = Ledger::initLedger(*config, keychain, face, signerId);
-  // //construct a record
-  // std::cout << "initialization of ledger worked \n";
-  // std::cout << "processing events \n";
-  // face.processEvents();
-  // return true;
+    // schedule for the next record generation
+    scheduler.schedule(time::seconds(10), [ledger, &scheduler] { periodicAddRecord(ledger, scheduler); });
 }
 
 int
@@ -56,29 +52,19 @@ main(int argc, char** argv)
   security::KeyChain keychain;
   std::shared_ptr<Config> config = nullptr;
   try {
-    config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName,std::getenv("HOME") + std::string("/dledger/dledger-anchor.cert"));
+    config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName,
+            std::getenv("HOME") + std::string("/dledger/dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName));
   }
   catch(const std::exception& e) {
     std::cout << e.what() << std::endl;
     return 1;
   }
 
-  auto ledger = Ledger::initLedger(*config, keychain, face, idName);
+  shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face, idName));
 
-  // auto success = testGenData(idName);
-  // if (!success) {
-  //   std::cout << "ledgerimp generate data failed" << std::endl;
-  // }
-  // else {
-  //   std::cout << "ledgerimp ex with no errors" << std::endl;
-  // }
-  // success = testSyncInterest();
-  // if (!success) {
-  //   std::cout << "ledgerimp generate syncinterest failed" << std::endl;
-  // }
-  // else {
-  //   std::cout << "syncint with no errors" << std::endl;
-  // }
+  Scheduler scheduler(ioService);
+  periodicAddRecord(ledger, scheduler);
+
   face.processEvents();
   return 0;
 }

@@ -2,6 +2,7 @@
 #include "record_name.hpp"
 
 #include <sstream>
+#include <utility>
 
 namespace dledger {
 
@@ -42,12 +43,12 @@ Record::getPointersFromHeader() const
 }
 
 void
-Record::addRecordItem(const std::string& recordItem)
+Record::addRecordItem(const Block& recordItem)
 {
   m_contentItems.push_back(recordItem);
 }
 
-const std::list<std::string>&
+const std::list<Block>&
 Record::getRecordItems() const
 {
   return m_contentItems;
@@ -123,7 +124,7 @@ Record::bodyWireEncode(Block& block) const
 {
   auto body = makeEmptyBlock(T_RecordContent);
   for (const auto& item : m_contentItems) {
-    body.push_back(makeStringBlock(T_ContentItem, item));
+    body.push_back(item);
   }
   body.parse();
   block.push_back(body);
@@ -137,16 +138,12 @@ Record::bodyWireDecode(const Block& dataContent) {
     const auto &contentBlock = dataContent.get(T_RecordContent);
     contentBlock.parse();
     for (const auto &item : contentBlock.elements()) {
-        if (item.type() == T_ContentItem) {
-            m_contentItems.push_back(readString(item));
-        } else {
-            BOOST_THROW_EXCEPTION(std::runtime_error("Bad body item type"));
-        }
+        m_contentItems.push_back(item);
     }
 }
 
 void
-Record::checkPointerValidity(const Name& prefix, int numPointers){
+Record::checkPointerValidity(const Name& prefix, int numPointers) const{
     if (getPointersFromHeader().size() != numPointers) {
         throw std::runtime_error("Less preceding record than expected");
     }
@@ -174,15 +171,52 @@ CertificateRecord::CertificateRecord(const std::string& identifer)
 {
 }
 
+CertificateRecord::CertificateRecord(Record record)
+    : Record(std::move(record))
+{
+    if (this->getType() != RecordType::CertificateRecord) {
+        BOOST_THROW_EXCEPTION(std::runtime_error("incorrect record type"));
+    }
+    for (const Block& block : this->getRecordItems()) {
+        m_cert_list.emplace_back(block);
+    }
+}
+
 void
 CertificateRecord::addCertificateItem(const security::v2::Certificate& certificate)
 {
-
+    m_cert_list.emplace_back(certificate);
+    addRecordItem(certificate.wireEncode());
 }
 
-const std::list<security::v2::Certificate>&
+const std::list<security::v2::Certificate> &
 CertificateRecord::getCertificates() const
 {
+    return m_cert_list;
 }
 
+RevocationRecord::RevocationRecord(const std::string &identifer):
+    Record(RecordType::RevocationRecord, identifer) {
+}
+
+RevocationRecord::RevocationRecord(Record record):
+    Record(std::move(record)){
+    if (this->getType() != RecordType::RevocationRecord) {
+        BOOST_THROW_EXCEPTION(std::runtime_error("incorrect record type"));
+    }
+    for (const Block& block : this->getRecordItems()) {
+        m_revoked_cert_list.emplace_back(block);
+    }
+}
+
+void
+RevocationRecord::addCertificateNameItem(const Name &certificateName){
+    m_revoked_cert_list.emplace_back(certificateName);
+    addRecordItem(certificateName.wireEncode());
+}
+
+const std::list<Name> &
+RevocationRecord::getRevokedCertificates() const{
+    return m_revoked_cert_list;
+}
 }  // namespace dledger

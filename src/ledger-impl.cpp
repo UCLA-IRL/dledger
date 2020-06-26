@@ -85,7 +85,6 @@ LedgerImpl::LedgerImpl(const Config& config,
             << "DLedger Initialization Succeed\n\n";
 
   this->sendPeriodicSyncInterest();
-  this->startPeriodicAddRecord();
 }
 
 LedgerImpl::~LedgerImpl()
@@ -135,7 +134,7 @@ LedgerImpl::createRecord(Record& record)
 
   // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
   // each <> represent only one component
-  Name dataName = RecordName::generateGenericRecordName(m_config, record);
+  Name dataName = RecordName::generateRecordName(m_config, record);
   auto data = make_shared<Data>(dataName);
   auto contentBlock = makeEmptyBlock(tlv::Content);
   record.wireEncode(contentBlock);
@@ -263,22 +262,6 @@ void LedgerImpl::sendSyncInterest() {
     // nullptrs for data and timeout callbacks because a sync Interest is not expecting a Data back
     m_network.expressInterest(syncInterest, nullptr,
                               bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
-}
-
-    void
-LedgerImpl::startPeriodicAddRecord()
-{
-  Record record(RecordType::GenericRecord, std::to_string(std::rand()));
-  record.addRecordItem(std::to_string(std::rand()));
-  record.addRecordItem(std::to_string(std::rand()));
-  record.addRecordItem(std::to_string(std::rand()));
-  ReturnCode result = createRecord(record);
-  if (!result.success()) {
-    std::cout << "- Adding record error : " << result.what() << std::endl;
-  }
-
-  // schedule for the next record generation
-  m_scheduler.schedule(time::seconds(10), [this] { startPeriodicAddRecord(); });
 }
 
 bool

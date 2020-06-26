@@ -58,7 +58,7 @@ namespace dledger {
         return recordName;
     }
 
-    RecordName RecordName::generateGenericRecordName(Config config, Record record) {
+    RecordName RecordName::generateRecordName(Config config, Record record) {
         Name recordName(config.peerPrefix);
         recordName.append(recordTypeToString(record.getType()))
         .append(record.getUniqueIdentifier())

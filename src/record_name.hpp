@@ -26,7 +26,7 @@ public:
 
     //generate names
     static RecordName generateGenesisRecordName(Config config, int i);
-    static RecordName generateGenericRecordName(Config config, Record record);
+    static RecordName generateRecordName(Config config, Record record);
     };
 
 }

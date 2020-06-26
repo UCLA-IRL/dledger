@@ -40,7 +40,7 @@ public: // used for preparing a new record before appending it into the DLedger
    * @p recordItem, input, the record payload to add.
    */
   void
-  addRecordItem(const std::string& recordItem);
+  addRecordItem(const Block& recordItem);
 
   /**
    * Get the NDN Data full name of the record.
@@ -72,7 +72,7 @@ public: // used for preparing a new record before appending it into the DLedger
   /**
    * Get record payload items.
    */
-  const std::list<std::string>&
+  const std::list<Block>&
   getRecordItems() const;
 
   /**
@@ -139,7 +139,7 @@ private:
   bodyWireDecode(const Block& dataContent);
 
   void
-  checkPointerValidity(const Name& prefix, int numPointers);
+  checkPointerValidity(const Name& prefix, int numPointers) const;
 
 private:
   /**
@@ -150,10 +150,6 @@ private:
    * The TLV type of the record body in the NDN Data Content.
    */
   const static uint8_t T_RecordContent = 130;
-  /**
-   * The TLV type of each item in the record body in the NDN Data Content.
-   */
-  const static uint8_t T_ContentItem = 131;
 
 private:
   /**
@@ -171,10 +167,9 @@ private:
    */
   std::list<Name> m_recordPointers;
   /**
-   * The data structure to carry the record body payload.
+   * The data structure to carry the record body payloads.
    */
-  std::list<std::string> m_contentItems;
-
+  std::list<Block> m_contentItems;
 
   friend class LedgerImpl;
 };
@@ -190,11 +185,43 @@ class CertificateRecord : public Record
 public:
   CertificateRecord(const std::string& identifer);
 
+  /**
+   * Construct Revocation record from received record
+   * May throw exception if the format is incorrect
+   * @param record
+   */
+  CertificateRecord(Record record);
+
   void
   addCertificateItem(const security::v2::Certificate& certificate);
 
-  const std::list<security::v2::Certificate>&
+  const std::list<security::v2::Certificate> &
   getCertificates() const;
+
+private:
+  std::list<security::v2::Certificate> m_cert_list;
+};
+
+class RevocationRecord : public Record {
+public:
+    RevocationRecord(const std::string &identifer);
+
+    /**
+     * Construct Revocation record from received record
+     * May throw exception if the format is incorrect
+     * @param record
+     */
+    RevocationRecord(Record
+    record);
+
+    void
+    addCertificateNameItem(const Name &certificateName);
+
+    const std::list<Name> &
+    getRevokedCertificates() const;
+
+private:
+    std::list<Name> m_revoked_cert_list;
 };
 
 inline std::string

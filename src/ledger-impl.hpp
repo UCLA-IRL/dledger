@@ -46,9 +46,6 @@ private:
   void
   sendPeriodicSyncInterest();
 
-  void
-  startPeriodicAddRecord();
-
   bool
   checkSyntaxValidityOfRecord(const Data& data);
   bool
