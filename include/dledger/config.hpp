@@ -49,6 +49,7 @@ public:
   Name peerPrefix;
   /**
    * The trust anchor certificate of the whole distributed ledger system.
+   * The identity should be another peer.
    */
   std::shared_ptr<security::v2::Certificate> trustAnchorCert;
   /**

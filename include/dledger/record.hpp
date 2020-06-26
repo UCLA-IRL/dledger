@@ -180,17 +180,17 @@ public:
   GenericRecord(const std::string& identifer);
 };
 
-class CertificateRecord : public Record
+class CertRecord : public Record
 {
 public:
-  CertificateRecord(const std::string& identifer);
+  CertRecord(const std::string& identifer);
 
   /**
    * Construct Revocation record from received record
    * May throw exception if the format is incorrect
    * @param record
    */
-  CertificateRecord(Record record);
+  CertRecord(Record record);
 
   void
   addCertificateItem(const security::v2::Certificate& certificate);
@@ -202,16 +202,16 @@ private:
   std::list<security::v2::Certificate> m_cert_list;
 };
 
-class RevocationRecord : public Record {
+class RevokeRecord : public Record {
 public:
-    RevocationRecord(const std::string &identifer);
+    RevokeRecord(const std::string &identifer);
 
     /**
      * Construct Revocation record from received record
      * May throw exception if the format is incorrect
      * @param record
      */
-    RevocationRecord(Record
+    RevokeRecord(Record
     record);
 
     void

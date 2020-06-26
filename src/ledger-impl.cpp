@@ -50,9 +50,20 @@ LedgerImpl::LedgerImpl(const Config& config,
     , m_id(std::move(id))
     , m_scheduler(network.getIoService())
     , m_backend(config.databasePath)
-
+    , m_certList(config)
 {
   std::cout << "\nDLedger Initialization Start" << std::endl;
+
+  //****STEP 0****
+  //check validity of config
+  if (m_config.appendWeight > m_config.contributionWeight) {
+    std::cerr << "invalid weight configuration" << std::endl;
+    BOOST_THROW_EXCEPTION(std::runtime_error("invalid weight configuration"));
+  }
+  if (m_config.peerPrefix.size() != m_config.trustAnchorCert->getIdentity().size()) {
+    std::cerr << "trust Anchor should follow the peer prefix format" << std::endl;
+    BOOST_THROW_EXCEPTION(std::runtime_error("trust Anchor should follow the peer prefix format"));
+  }
 
   //****STEP 1****
   // Register the prefix to local NFD
@@ -83,6 +94,10 @@ LedgerImpl::LedgerImpl(const Config& config,
   std::cout << "STEP 2" << std::endl
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
             << "DLedger Initialization Succeed\n\n";
+
+  //****STEP 3****
+  //append AnchorCert to certificate list
+  m_certList.insert(*m_config.trustAnchorCert);
 
   this->sendPeriodicSyncInterest();
 }
@@ -196,8 +211,11 @@ LedgerImpl::onNewRecordNotification(const Interest& interest)
 {
   std::cout << "[LedgerImpl::onNewRecordNotification] Receive Notification of a New Record" << std::endl;
 
-  // @TODO: verify the signature
-  // if (security::verifySignature(interest, TODO: certificate of the peer))
+  // verify the signature
+  if (!m_certList.verifySignature(interest)) {
+      std::cout << "- Bad Signature. " << std::endl;
+      return;
+  }
 
   // /multicastPrefix/NOTIF/record-name/<digest>
   auto nameBlock = interest.getName().get(m_config.multicastPrefix.size() + 1).blockFromValue();
@@ -281,7 +299,16 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
 
     std::cout << "- Step 2: Check signature" << std::endl;
     std::string producerID = dataRecord.getProducerID();
-    // @TODO: get the certificate from the cache
+    if (!m_certList.verifySignature(data)){
+        std::cout << "-- Bad Signature." << std::endl;
+        return false;
+    }
+    if (dataRecord.getType() == RecordType::CertificateRecord) {
+        if (!security::verifySignature(data, *m_config.trustAnchorCert)) {
+            std::cout << "-- Certificate Record has bad Signature." << std::endl;
+            return false;
+        }
+    }
 
     std::cout << "- Step 3: Check rating limit" << std::endl;
     auto tp = dataRecord.getGenerationTimestamp();
@@ -302,7 +329,42 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
         }
     }
 
-    std::cout << "- Step 5: Check App Logic" << std::endl;
+    std::cout << "- Step 5: Check certificate/revocation record format" << std::endl;
+    if (dataRecord.getType() == RecordType::CertificateRecord) {
+        try {
+            auto certRecord = CertRecord(dataRecord);
+            for (const auto& cert: certRecord.getCertificates()) {
+                if (!security::verifySignature(cert, *m_config.trustAnchorCert)){
+                    std::cout << "-- invalid certificate: "<< cert.getName() << std::endl;
+                    return false;
+                }
+            }
+        } catch (const std::exception &e) {
+            std::cout << "-- Bad certificate record format. " << std::endl;
+            return false;
+        }
+    } else if (dataRecord.getType() == RecordType::RevocationRecord) {
+        try {
+            auto revokeRecord = RevokeRecord(dataRecord);
+            bool isAnchor = readString(m_config.trustAnchorCert->getIdentity().get(-1)) == revokeRecord.getProducerID();
+            for (const auto& certName: revokeRecord.getRevokedCertificates()) {
+                if (!security::v2::Certificate::isValidName(certName)) {
+                    std::cout << "-- invalid revoked certificate: "<< certName << std::endl;
+                    return false;
+                }
+                if (!isAnchor &&
+                    readString(m_certList.getCertificateNameIdentity(certName).get(-1)) != revokeRecord.getProducerID()) {
+                    std::cout << "-- invalid revoked of other's certificate: "<< certName << std::endl;
+                    return false;
+                }
+            }
+        } catch (const std::exception &e) {
+            std::cout << "-- Bad revocation record format. " << std::endl;
+            return false;
+        }
+    }
+
+    std::cout << "- Step 6: Check App Logic" << std::endl;
     if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
         std::cout << "-- App Logic check failed" << std::endl;
         return false;
@@ -323,7 +385,7 @@ bool LedgerImpl::checkReferenceValidityOfRecord(const Data& data) {
         return false;
     }
 
-    std::cout << "- Step 6: Check Contribution Policy" << std::endl;
+    std::cout << "- Step 7: Check Contribution Policy" << std::endl;
     for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
         if (m_tailRecords.count(precedingRecordName) != 0) {
             std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].refSet.size() << '\n';
@@ -356,8 +418,11 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
     return;
   }
 
-  // @TODO: verify the signature
-  // if (security::verifySignature(interest, TODO: certificate of the peer))
+  // verify the signature
+  if (!m_certList.verifySignature(interest)) {
+      std::cout << "- Bad Signature. " << std::endl;
+      return;
+  }
 
   const auto& appParam = interest.getApplicationParameters();
   appParam.parse();
@@ -529,6 +594,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     //add record to tailing record
     m_tailRecords[record.m_data->getFullName()] = TailingRecordState{refVerified, std::set<std::string>(), verified};
     m_backend.putRecord(record.m_data);
+    if (refVerified) onRecordAccepted(record);
 
     //update weight of the system
     std::stack<Name> stack;
@@ -554,7 +620,10 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
         if (it->second.refSet.size() >= m_config.confirmWeight) {
             std::cout << "confirmed " << it->first.toUri() << std::endl;
-            if (!it->second.referenceVerified) referenceNeedUpdate = true;
+            if (!it->second.referenceVerified) {
+                referenceNeedUpdate = true;
+                onRecordAccepted(m_backend.getRecord(it->first));
+            }
         }
         if (it->second.refSet.size() >= removeWeight) {
             it = m_tailRecords.erase(it);
@@ -577,13 +646,43 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
                         referenceVerified = false;
                     }
                 }
-                r.second.referenceVerified = referenceVerified;
-                if (referenceVerified) referenceNeedUpdate = true;
+
+                if (referenceVerified) {
+                    r.second.referenceVerified = referenceVerified;
+                    referenceNeedUpdate = true;
+                    onRecordAccepted(currentRecord);
+                }
             }
         }
     }
 
     dumpList(m_tailRecords);
+}
+
+void LedgerImpl::onRecordAccepted(const Record &record){
+    std::cout << "- Step 5: Check certificate/revocation record format" << std::endl;
+    if (record.getType() == RecordType::CertificateRecord) {
+        try {
+            auto certRecord = CertRecord(record);
+            for (const auto& cert: certRecord.getCertificates()) {
+                m_certList.insert(cert);
+            }
+        } catch (const std::exception &e) {
+            std::cout << "-- Bad certificate record format. " << std::endl;
+            return;
+        }
+    } else if (record.getType() == RecordType::RevocationRecord) {
+        try {
+            auto revokeRecord = RevokeRecord(record);
+            bool isAnchor = readString(m_config.trustAnchorCert->getIdentity().get(-1)) == revokeRecord.getProducerID();
+            for (const auto& certName: revokeRecord.getRevokedCertificates()) {
+                m_certList.revoke(certName);
+            }
+        } catch (const std::exception &e) {
+            std::cout << "-- Bad revocation record format. " << std::endl;
+            return;
+        }
+    }
 }
 
 std::unique_ptr<Ledger>

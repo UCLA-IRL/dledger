@@ -22,7 +22,7 @@ set(DLEDGER_LIB_SOURCE_FILES
     ./src/record.cpp
     ./src/config.cpp
     ./src/record_name.cpp
-    ./src/record_name.hpp)
+    ./src/record_name.hpp src/cert-list.cpp src/cert-list.h)
 
 # include
 include_directories(./include ./src)

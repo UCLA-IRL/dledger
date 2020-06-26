@@ -5,6 +5,7 @@
 #include "dledger/record.hpp"
 #include "dledger/config.hpp"
 #include "backend.hpp"
+#include "cert-list.h"
 #include <ndn-cxx/security/v2/certificate.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
 #include <ndn-cxx/face.hpp>
@@ -97,6 +98,10 @@ private:
    */
   bool checkRecordAncestor(const Record &record);
 
+  /**
+   * handles the information when a record is accepted.
+   */
+  void onRecordAccepted(const Record &record);
 private:
   Config m_config;
   Face& m_network;
@@ -105,10 +110,10 @@ private:
 
   Backend m_backend;
   std::map<Name, TailingRecordState> m_tailRecords;
+  CertList m_certList;
 
   std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
   security::KeyChain& m_keychain;
-  std::map<Name, Name> m_peerCertificates; // first: name of the peer, second: name of the certificate record
 
   // Zhiyi's temp member variable
   std::list<std::pair<Record, time::system_clock::TimePoint>> m_syncStack;
