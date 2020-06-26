@@ -328,25 +328,21 @@ LedgerImpl::checkValidityOfRecord(const Data& data)
   }
 
   std::cout << "- Step 4: Check Contribution Policy" << std::endl;
-  if (m_config.usingContributionPolicy) {
-      for (const auto &precedingRecordName : dataRecord.getPointersFromHeader()) {
-          if (m_tailRecords.count(precedingRecordName) != 0) {
-              std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].size() << '\n';
-              if (m_tailRecords[precedingRecordName].size() > m_config.contributionWeight) {
-                  std::cout << "--- Weight too high " << m_tailRecords[precedingRecordName].size() << '\n';
-                  return false;
-              }
-          } else {
-              if (m_backend.getRecord(precedingRecordName) != nullptr) {
-                  std::cout << "-- Preceding record too deep" << '\n';
-              } else {
-                  std::cout << "-- Preceding record Not found" << '\n';
-              }
+  for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
+      if (m_tailRecords.count(precedingRecordName) != 0) {
+          std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].size() << '\n';
+          if (m_tailRecords[precedingRecordName].size() > m_config.contributionWeight) {
+              std::cout << "--- Weight too high " << m_tailRecords[precedingRecordName].size() << '\n';
               return false;
           }
+      } else {
+          if (m_backend.getRecord(precedingRecordName) != nullptr) {
+              std::cout << "-- Preceding record too deep" << '\n';
+          } else {
+              std::cout << "-- Preceding record Not found" << '\n';
+          }
+          return false;
       }
-  } else {
-      std::cout << "-- skipped " << '\n';
   }
 
   std::cout << "- Step 5: Check App Logic" << std::endl;
