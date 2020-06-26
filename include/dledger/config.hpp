@@ -12,7 +12,8 @@ class Config
 {
 public:
   static shared_ptr<Config> DefaultConfig();
-  static shared_ptr<Config> CustomizedConfig(const std::string& multicastPrefix, const std::string& peerPrefix, const std::string anchorCertPath);
+  static shared_ptr<Config> CustomizedConfig(const std::string& multicastPrefix, const std::string& peerPrefix,
+          const std::string& anchorCertPath, const std::string& databasePath);
 
   /**
    * Construct a Config instance used for DLedger initialization.
@@ -50,6 +51,10 @@ public:
    * The trust anchor certificate of the whole distributed ledger system.
    */
   std::shared_ptr<security::v2::Certificate> trustAnchorCert;
+  /**
+   * The path to the Database;
+   */
+   std::string databasePath;
 };
 
 } // namespace dledger

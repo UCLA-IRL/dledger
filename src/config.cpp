@@ -20,11 +20,13 @@ Config::DefaultConfig()
   if (config->trustAnchorCert == nullptr) {
     BOOST_THROW_EXCEPTION(std::runtime_error("Cannot load anchor certificate from the default path."));
   }
+  config->databasePath = "/tmp/dledger-db/" + readString(config->peerPrefix.get(-1));
   return config;
 }
 
 shared_ptr<Config>
-Config::CustomizedConfig(const std::string& multicastPrefix, const std::string& producerPrefix, const std::string anchorCertPath)
+Config::CustomizedConfig(const std::string& multicastPrefix, const std::string& producerPrefix,
+        const std::string& anchorCertPath, const std::string& databasePath)
 {
   auto config = std::make_shared<Config>(multicastPrefix, producerPrefix);
   config->trustAnchorCert = io::load<security::v2::Certificate>(anchorCertPath);
@@ -33,6 +35,7 @@ Config::CustomizedConfig(const std::string& multicastPrefix, const std::string& 
     BOOST_THROW_EXCEPTION(std::runtime_error("Cannot load anchor certificate from the designated path."));
   }
   std::cout << config->trustAnchorCert->getName().toUri() << std::endl;
+  config->databasePath = databasePath;
   return config;
 }
 

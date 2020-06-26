@@ -47,21 +47,12 @@ LedgerImpl::LedgerImpl(const Config& config,
     , m_network(network)
     , m_id(std::move(id))
     , m_scheduler(network.getIoService())
+    , m_backend(config.databasePath)
+
 {
   std::cout << "\nDLedger Initialization Start" << std::endl;
-  //****STEP 1****
-  // Initialize Database
-  std::string dbDir = "/tmp/dledger-db/" + readString(m_config.peerPrefix.get(-1));
-  if (m_backend.initDatabase(dbDir)) {
-      std::cout << "STEP 1" << std::endl
-                << "- LevelDB at " << dbDir << " has been initialized." << std::endl;
-  } else {
-      std::cout << "STEP 1" << std::endl
-                << "- LevelDB at " << dbDir << " Failed to initialize." << std::endl;
-      BOOST_THROW_EXCEPTION(std::runtime_error("fail to initialize db"));
-  }
 
-  //****STEP 2****
+  //****STEP 1****
   // Register the prefix to local NFD
   Name syncName = m_config.multicastPrefix;
   syncName.append("SYNC");
@@ -76,7 +67,7 @@ LedgerImpl::LedgerImpl(const Config& config,
             << notifName.toUri()
             << " have been registered." << std::endl;
 
-  //****STEP 3****
+  //****STEP 2****
   // Make the genesis data
   for (int i = 0; i < DEFAULT_GENESIS_BLOCKS; i++) {
     RecordName recordName = RecordName::generateGenesisRecordName(config, i);
@@ -87,7 +78,7 @@ LedgerImpl::LedgerImpl(const Config& config,
     m_backend.putRecord(data);
     m_tailRecords[data->getFullName()] = TailingRecordState{true, std::set<std::string>(), true};
   }
-  std::cout << "STEP 3" << std::endl
+  std::cout << "STEP 2" << std::endl
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
             << "DLedger Initialization Succeed\n\n";
 

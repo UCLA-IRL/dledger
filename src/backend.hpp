@@ -10,7 +10,9 @@ namespace dledger {
 
 class Backend {
 public:
-  Backend(const std::string& dbDir = "/tmp/dledger-db");
+  Backend(const std::string& dbDir);
+
+public:
   ~Backend();
 
   // @param the recordName must be a full name (i.e., containing explicit digest component)
@@ -22,14 +24,6 @@ public:
 
   void
   deleteRecord(const Name& recordName);
-
-  /**
-   * Initialize the connection to database
-   * @param dbDir
-   * @return true if successful
-   */
-  bool
-  initDatabase(const std::string& dbDir);
 
 private:
   leveldb::DB* m_db;

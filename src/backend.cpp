@@ -7,7 +7,14 @@ namespace dledger {
 
 Backend::Backend(const std::string& dbDir)
 {
-  this->initDatabase(dbDir);
+    leveldb::Options options;
+    options.create_if_missing = true;
+    leveldb::Status status = leveldb::DB::Open(options, dbDir, &m_db);
+    if (!status.ok()) {
+        std::cerr << "Unable to open/create database " << dbDir << std::endl;
+        std::cerr << status.ToString() << std::endl;
+        BOOST_THROW_EXCEPTION(std::runtime_error("Unable to open/create database"));
+    }
 }
 
 Backend::~Backend()
@@ -22,7 +29,7 @@ Backend::getRecord(const Name& recordName)
   leveldb::Slice key = nameStr;
   std::string value;
   leveldb::Status s = m_db->Get(leveldb::ReadOptions(), key, &value);
-  if (false == s.ok()) {
+  if (!s.ok()) {
     return nullptr;
   }
   else {
@@ -39,7 +46,7 @@ Backend::putRecord(const shared_ptr<const Data>& recordData)
   auto recordBytes = recordData->wireEncode();
   leveldb::Slice value((const char*)recordBytes.wire(), recordBytes.size());
   leveldb::Status s = m_db->Put(leveldb::WriteOptions(), key, value);
-  if (false == s.ok()) {
+  if (!s.ok()) {
     return false;
   }
   return true;
@@ -51,24 +58,10 @@ Backend::deleteRecord(const Name& recordName)
   const auto& nameStr = recordName.toUri();
   leveldb::Slice key = nameStr;
   leveldb::Status s = m_db->Delete(leveldb::WriteOptions(), key);
-  if (false == s.ok()) {
+  if (!s.ok()) {
     std::cerr << "Unable to delete value from database, key: " << nameStr << std::endl;
     std::cerr << s.ToString() << std::endl;
   }
-}
-
-bool
-Backend::initDatabase(const std::string& dbDir)
-{
-  leveldb::Options options;
-  options.create_if_missing = true;
-  leveldb::Status status = leveldb::DB::Open(options, dbDir, &m_db);
-  if (!status.ok()) {
-    std::cerr << "Unable to open/create database " << dbDir << std::endl;
-    std::cerr << status.ToString() << std::endl;
-    return false;
-  }
-  return true;
 }
 
 }  // namespace dledger
