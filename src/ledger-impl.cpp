@@ -16,6 +16,7 @@ namespace dledger {
 
 const static size_t DEFAULT_GENESIS_BLOCKS = 10;
 const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds(1);
+const static time::seconds ANCESTOR_FETCH_TIMEOUT = time::seconds(10);
 
 void
 dumpList(const std::vector<Name>& list)
@@ -28,11 +29,11 @@ dumpList(const std::vector<Name>& list)
 }
 
 void
-dumpList(const std::map<Name, std::set<std::string>>& weight)
+LedgerImpl::dumpList(const std::map<Name, TailingRecordState>& weight)
 {
     std::cout << "Dump " << weight.size() << " Tailing Records" << std::endl;
   for (const auto& item : weight) {
-    std::cout << item.second.size() << "\t" << item.first.toUri() << std::endl;
+    std::cout << (item.second.referenceVerified ? "OK " : "NO ") << item.second.refSet.size() << "\t" << item.first.toUri() << std::endl;
   }
   std::cout << std::endl << std::endl;
 }
@@ -84,7 +85,7 @@ LedgerImpl::LedgerImpl(const Config& config,
     data->setContent(contentBlock);
     m_keychain.sign(*data, security::signingWithSha256());
     m_backend.putRecord(data);
-    m_tailRecords[data->getFullName()] = std::set<std::string>();
+    m_tailRecords[data->getFullName()] = TailingRecordState{true, std::set<std::string>(), true};
   }
   std::cout << "STEP 3" << std::endl
             << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
@@ -109,7 +110,8 @@ LedgerImpl::createRecord(Record& record)
 
   std::vector<std::pair<Name, int>> recordList;
   for (const auto &item : m_tailRecords) {
-    recordList.emplace_back(std::pair<Name, int>(item.first, item.second.size()));
+      if (item.second.referenceVerified)
+            recordList.emplace_back(item.first, item.second.refSet.size());
   }
 
   // randomly shuffle the tailing record list
@@ -173,7 +175,7 @@ LedgerImpl::createRecord(Record& record)
   m_network.expressInterest(interest, nullptr, bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
 
   // add new record into the ledger
-  addToTailingRecord(record);
+  addToTailingRecord(record, true);
   return ReturnCode::noError();
 }
 
@@ -257,7 +259,7 @@ void LedgerImpl::sendSyncInterest() {
     Interest syncInterest(syncInterestName);
     Block appParam = makeEmptyBlock(tlv::ApplicationParameters);
     for (const auto &item : m_tailRecords) {
-        if (item.second.empty())
+        if (item.second.refSet.empty())
             appParam.push_back(item.first.wireEncode());
     }
     appParam.parse();
@@ -287,72 +289,84 @@ LedgerImpl::startPeriodicAddRecord()
 }
 
 bool
-LedgerImpl::checkValidityOfRecord(const Data& data)
-{
-  std::cout << "[LedgerImpl::checkValidityOfRecord] Check the validity of the record" << std::endl;
-  std::cout << "- Step 1: Check whether it is a valid record following DLedger record spec" << std::endl;
-  Record dataRecord;
-  try {
-    // format check
-    dataRecord = Record(data);
-    dataRecord.checkPointerValidity(
-            m_config.peerPrefix.getSubName(0, m_config.peerPrefix.size() - 1)
-            , m_config.precedingRecordNum);
-  } catch (const std::exception& e) {
-    std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
-    return false;
-  }
-
-  std::cout << "- Step 2: Check signature" << std::endl;
-  std::string producerID = dataRecord.getProducerID();
-  // @TODO: get the certificate from the cache
-
-  std::cout << "- Step 3: Check rating limit" << std::endl;
-  auto tp = dataRecord.getGenerationTimestamp();
-  if (m_rateCheck.find(producerID) == m_rateCheck.end()) {
-    m_rateCheck[producerID] = tp;
-  }
-  else {
-    if ((time::abs(tp - m_rateCheck[producerID]) < RECORD_PRODUCTION_INTERVAL_RATE_LIMIT)) {
-      return false;
+LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
+    std::cout << "[LedgerImpl::checkSyntaxValidityOfRecord] Check the format validity of the record" << std::endl;
+    std::cout << "- Step 1: Check whether it is a valid record following DLedger record spec" << std::endl;
+    Record dataRecord;
+    try {
+        // format check
+        dataRecord = Record(data);
+        dataRecord.checkPointerValidity(
+                m_config.peerPrefix.getSubName(0, m_config.peerPrefix.size() - 1), m_config.precedingRecordNum);
+    } catch (const std::exception &e) {
+        std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
+        return false;
     }
-  }
 
-  std::cout << "- Step 4: Check InterLock Policy" << std::endl;
-  for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
-      std::cout << "-- Preceding record from " << RecordName(precedingRecordName).getProducerID() << '\n';
-      if (RecordName(precedingRecordName).getProducerID() == producerID) {
-          std::cout << "--- From itself" << '\n';
-          return false;
-      }
-  }
+    std::cout << "- Step 2: Check signature" << std::endl;
+    std::string producerID = dataRecord.getProducerID();
+    // @TODO: get the certificate from the cache
 
-  std::cout << "- Step 4: Check Contribution Policy" << std::endl;
-  for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
-      if (m_tailRecords.count(precedingRecordName) != 0) {
-          std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].size() << '\n';
-          if (m_tailRecords[precedingRecordName].size() > m_config.contributionWeight) {
-              std::cout << "--- Weight too high " << m_tailRecords[precedingRecordName].size() << '\n';
-              return false;
-          }
-      } else {
-          if (m_backend.getRecord(precedingRecordName) != nullptr) {
-              std::cout << "-- Preceding record too deep" << '\n';
-          } else {
-              std::cout << "-- Preceding record Not found" << '\n';
-          }
-          return false;
-      }
-  }
+    std::cout << "- Step 3: Check rating limit" << std::endl;
+    auto tp = dataRecord.getGenerationTimestamp();
+    if (m_rateCheck.find(producerID) == m_rateCheck.end()) {
+        m_rateCheck[producerID] = tp;
+    } else {
+        if ((time::abs(tp - m_rateCheck[producerID]) < RECORD_PRODUCTION_INTERVAL_RATE_LIMIT)) {
+            return false;
+        }
+    }
 
-  std::cout << "- Step 5: Check App Logic" << std::endl;
-  if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
-      std::cout << "-- App Logic check failed" << std::endl;
-      return false;
-  }
+    std::cout << "- Step 4: Check InterLock Policy" << std::endl;
+    for (const auto &precedingRecordName : dataRecord.getPointersFromHeader()) {
+        std::cout << "-- Preceding record from " << RecordName(precedingRecordName).getProducerID() << '\n';
+        if (RecordName(precedingRecordName).getProducerID() == producerID) {
+            std::cout << "--- From itself" << '\n';
+            return false;
+        }
+    }
 
-  std::cout << "- All Steps finished. Good Record" << std::endl;
-  return true;
+    std::cout << "- Step 5: Check App Logic" << std::endl;
+    if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
+        std::cout << "-- App Logic check failed" << std::endl;
+        return false;
+    }
+
+    std::cout << "- All Syntax check Steps finished. Good Record" << std::endl;
+    return true;
+}
+
+bool LedgerImpl::checkReferenceValidityOfRecord(const Data& data) {
+    std::cout << "[LedgerImpl::checkReferenceValidityOfRecord] Check the reference validity of the record" << std::endl;
+    Record dataRecord;
+    try {
+        // format check
+        dataRecord = Record(data);
+    } catch (const std::exception& e) {
+        std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
+        return false;
+    }
+
+    std::cout << "- Step 6: Check Contribution Policy" << std::endl;
+    for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
+        if (m_tailRecords.count(precedingRecordName) != 0) {
+            std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].refSet.size() << '\n';
+            if (m_tailRecords[precedingRecordName].refSet.size() > m_config.contributionWeight) {
+                std::cout << "--- Weight too high " << m_tailRecords[precedingRecordName].refSet.size() << '\n';
+                return false;
+            }
+        } else {
+            if (m_backend.getRecord(precedingRecordName) != nullptr) {
+                std::cout << "-- Preceding record too deep" << '\n';
+            } else {
+                std::cout << "-- Preceding record Not found" << '\n';
+            }
+            return false;
+        }
+    }
+
+    std::cout << "- All Reference Check Steps finished. Good Record" << std::endl;
+    return true;
 }
 
 void
@@ -376,7 +390,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
   for (const auto& item : appParam.elements()) {
     Name recordName(item);
     std::cout << "-- " << recordName.toUri() << "\n";
-    if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName].empty()) {
+    if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName].refSet.empty()) {
       std::cout << "--- This record is already in our tailing records \n";
     }
     else if (m_backend.getRecord(recordName)) {
@@ -407,7 +421,7 @@ LedgerImpl::onRecordRequest(const Interest& interest)
 void
 LedgerImpl::fetchRecord(const Name& recordName)
 {
-  std::cout << "[LedgerImpl::fetchRecordForSync] Fetch the missing record" << std::endl;
+  std::cout << "[LedgerImpl::fetchRecord] Fetch the missing record" << std::endl;
   Interest interestForRecord(recordName);
   interestForRecord.setCanBePrefix(false);
   interestForRecord.setMustBeFresh(true);
@@ -431,7 +445,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       return;
   }
   for (const auto& stackRecord : m_syncStack) {
-      if (stackRecord.getRecordName() == data.getFullName().toUri()) {
+      if (stackRecord.first.getRecordName() == data.getFullName().toUri()) {
           std::cout << "- Record in sync stack already. Ignore" << std::endl;
           return;
       }
@@ -443,7 +457,11 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
           throw std::runtime_error("should not get Genesis record");
       }
 
-      m_syncStack.push_back(record);
+      if (!checkSyntaxValidityOfRecord(data)) {
+          throw std::runtime_error("Record Syntax error");
+      }
+
+      m_syncStack.emplace_back(record, time::system_clock::now());
       auto precedingRecordNames = record.getPointersFromHeader();
       bool allPrecedingRecordsInLedger = true;
       for (const auto &precedingRecordName : precedingRecordNames) {
@@ -471,7 +489,10 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       stackSize = m_syncStack.size();
       std::cout << "- SyncStack size " << m_syncStack.size() << std::endl;
       for (auto it = m_syncStack.begin(); it != m_syncStack.end();) {
-          if (checkRecordAncestor(*it)) {
+          if (checkRecordAncestor(it->first)) {
+              it = m_syncStack.erase(it);
+          } else if(time::abs(time::system_clock::now() - it->second) > ANCESTOR_FETCH_TIMEOUT){
+              std::cout << "-- Timeout on fetching ancestor for " << it->first.getRecordName() << std::endl;
               it = m_syncStack.erase(it);
           } else {
               // else, some preceding records are not yet fetched
@@ -497,14 +518,9 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
         }
     }
     if (!badRecord && readyToAdd) {
-        if (checkValidityOfRecord(*(record.m_data))) {
-            std::cout << "- Good record. Will add record in to the ledger" << std::endl;
-            addToTailingRecord(record);
-            return true;
-        }
-        else {
-            badRecord = true;
-        }
+        std::cout << "- Good record. Will add record in to the ledger" << std::endl;
+        addToTailingRecord(record, checkReferenceValidityOfRecord(*(record.m_data)));
+        return true;
     }
     if (badRecord) {
         std::cout << "- Bad record. Will remove it and all its later records" << std::endl;
@@ -515,16 +531,30 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
 }
 
 void
-LedgerImpl::addToTailingRecord(const Record& record) {
+LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     if (m_tailRecords.count(record.m_data->getFullName()) != 0) {
         std::cout << "[LedgerImpl::addToTailingRecord] Repeated add record: " << record.m_data->getFullName()
                   << std::endl;
         return;
     }
 
-    m_tailRecords[record.m_data->getFullName()] = std::set<std::string>();
+    //verify if ancestor has correct reference policy
+    bool refVerified = verified;
+    if (verified) {
+        for (const auto &precedingRecord : record.getPointersFromHeader()) {
+            if (m_tailRecords.count(precedingRecord) != 0 &&
+                !m_tailRecords[precedingRecord].referenceVerified) {
+                refVerified = false;
+                break;
+            }
+        }
+    }
+
+    //add record to tailing record
+    m_tailRecords[record.m_data->getFullName()] = TailingRecordState{refVerified, std::set<std::string>(), verified};
     m_backend.putRecord(record.m_data);
 
+    //update depth of the system
     std::stack<Name> stack;
     stack.push(record.m_data->getFullName());
     while (!stack.empty()) {
@@ -535,19 +565,41 @@ LedgerImpl::addToTailingRecord(const Record& record) {
         auto precedingRecordList = currentRecord.getPointersFromHeader();
         for (const auto &precedingRecord : precedingRecordList) {
             if (m_tailRecords.count(precedingRecord) != 0 &&
-                m_tailRecords[precedingRecord].insert(record.getProducerID()).second) {
+                m_tailRecords[precedingRecord].refSet.insert(record.getProducerID()).second) {
                 stack.push(precedingRecord);
                 std::cout << record.getProducerID() << " confirms " << precedingRecord.toUri() << std::endl;
             }
         }
     }
 
+    //remove deep records
+    bool referenceNeedUpdate = false;
     for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
-        if (it->second.size() >= m_config.confirmWeight) {
+        if (it->second.refSet.size() >= m_config.confirmWeight) {
             std::cout << "confirmed " << it->first.toUri() << std::endl;
+            if (!it->second.referenceVerified) referenceNeedUpdate = true;
             it = m_tailRecords.erase(it);
         } else {
             it++;
+        }
+    }
+
+    //update reference policy
+    while (referenceNeedUpdate) {
+        referenceNeedUpdate = false;
+        for (auto &r : m_tailRecords) {
+            if (!r.second.referenceVerified && r.second.recordPolicyVerified) {
+                bool referenceVerified = true;
+                Record currentRecord(m_backend.getRecord(r.first));
+                for (const auto &precedingRecord : currentRecord.getPointersFromHeader()) {
+                    if (m_tailRecords.count(precedingRecord) != 0 &&
+                        !m_tailRecords[precedingRecord].referenceVerified) {
+                        referenceVerified = false;
+                    }
+                }
+                r.second.referenceVerified = referenceVerified;
+                if (referenceVerified) referenceNeedUpdate = true;
+            }
         }
     }
 
@@ -559,6 +611,7 @@ Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& fac
 {
   return std::make_unique<LedgerImpl>(config, keychain, face, id);
 }
+
 
 //===============================================================================
 

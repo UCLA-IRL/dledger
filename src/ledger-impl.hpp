@@ -13,7 +13,6 @@
 #include <ndn-cxx/util/io.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
 #include <stack>
-#include <unordered_set>
 
 
 using namespace ndn;
@@ -51,7 +50,9 @@ private:
   startPeriodicAddRecord();
 
   bool
-  checkValidityOfRecord(const Data& data);
+  checkSyntaxValidityOfRecord(const Data& data);
+  bool
+  checkReferenceValidityOfRecord(const Data& data);
 
   // Interest format: each <> is only one name component
   // /<multicast_prefix>/NOTIF/<Full Name of Record>
@@ -81,10 +82,16 @@ private:
    * @param record
    */
   void
-  addToTailingRecord(const Record& record);
+  addToTailingRecord(const Record& record, bool verified);
 
   //Siqi's temp function
+  struct TailingRecordState{
+      bool referenceVerified;
+      std::set<std::string> refSet;
+      bool recordPolicyVerified;
+  };
   void sendSyncInterest();
+  void dumpList(const std::map<Name, TailingRecordState>& weight);
 
   /**
    * Check if the ancestor of the record is OK
@@ -100,17 +107,17 @@ private:
   Scheduler m_scheduler;
 
   Backend m_backend;
-  std::map<Name, std::set<std::string>> m_tailRecords;
+  std::map<Name, TailingRecordState> m_tailRecords;
 
   std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
   security::KeyChain& m_keychain;
   std::map<Name, Name> m_peerCertificates; // first: name of the peer, second: name of the certificate record
 
   // Zhiyi's temp member variable
-  std::list<Record> m_syncStack;
+  std::list<std::pair<Record, time::system_clock::TimePoint>> m_syncStack;
 
   // Siqi's temp member variable
-  std::unordered_set<Name> m_badRecords;
+  std::set<Name> m_badRecords;
 };
 
 // class Ledger
