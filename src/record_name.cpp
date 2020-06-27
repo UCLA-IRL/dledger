@@ -11,7 +11,7 @@ namespace dledger {
         if (this->size() < 5 || (hasImplicitDigest() && this->size() < 6))
             BOOST_THROW_EXCEPTION(std::runtime_error("record name too short"));
         getGenerationTimestamp();
-        if (getRecordType() == RecordType::BaseRecord)
+        if (getRecordType() == RecordType::BASE_RECORD)
             BOOST_THROW_EXCEPTION(std::runtime_error("record name invalid type"));
     }
 
@@ -53,7 +53,7 @@ namespace dledger {
 
     RecordName RecordName::generateGenesisRecordName(Config config, int i) {
         Name recordName(config.peerPrefix.getSubName(0, config.peerPrefix.size() - 1));
-        recordName.append("genesis").append(recordTypeToString(GenesisRecord)).append(std::to_string(i));
+        recordName.append("genesis").append(recordTypeToString(GENESIS_RECORD)).append(std::to_string(i));
         recordName.appendTimestamp(time::system_clock::time_point());
         return recordName;
     }

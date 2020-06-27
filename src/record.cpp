@@ -28,12 +28,12 @@ Record::Record(ndn::Data data)
 {
 }
 
-std::string
+Name
 Record::getRecordName() const
 {
   if (m_data != nullptr)
-    return m_data->getFullName().toUri();
-  return "";
+    return m_data->getFullName();
+  return Name();
 }
 
 const std::list<Name>&
@@ -162,19 +162,19 @@ Record::checkPointerValidity(const Name& prefix, int numPointers) const{
 }
 
 GenericRecord::GenericRecord(const std::string& identifer)
-    : Record(RecordType::GenericRecord, identifer)
+    : Record(RecordType::GENERIC_RECORD, identifer)
 {
 }
 
-CertRecord::CertRecord(const std::string& identifer)
-    : Record(RecordType::CertificateRecord, identifer)
+CertificateRecord::CertificateRecord(const std::string& identifer)
+    : Record(RecordType::CERTIFICATE_RECORD, identifer)
 {
 }
 
-CertRecord::CertRecord(Record record)
+CertificateRecord::CertificateRecord(Record record)
     : Record(std::move(record))
 {
-    if (this->getType() != RecordType::CertificateRecord) {
+    if (this->getType() != RecordType::CERTIFICATE_RECORD) {
         BOOST_THROW_EXCEPTION(std::runtime_error("incorrect record type"));
     }
     for (const Block& block : this->getRecordItems()) {
@@ -183,25 +183,25 @@ CertRecord::CertRecord(Record record)
 }
 
 void
-CertRecord::addCertificateItem(const security::v2::Certificate& certificate)
+CertificateRecord::addCertificateItem(const security::v2::Certificate& certificate)
 {
     m_cert_list.emplace_back(certificate);
     addRecordItem(certificate.wireEncode());
 }
 
 const std::list<security::v2::Certificate> &
-CertRecord::getCertificates() const
+CertificateRecord::getCertificates() const
 {
     return m_cert_list;
 }
 
-RevokeRecord::RevokeRecord(const std::string &identifer):
-    Record(RecordType::RevocationRecord, identifer) {
+RevocationRecord::RevocationRecord(const std::string &identifer):
+    Record(RecordType::REVOCATION_RECORD, identifer) {
 }
 
-RevokeRecord::RevokeRecord(Record record):
+RevocationRecord::RevocationRecord(Record record):
     Record(std::move(record)){
-    if (this->getType() != RecordType::RevocationRecord) {
+    if (this->getType() != RecordType::REVOCATION_RECORD) {
         BOOST_THROW_EXCEPTION(std::runtime_error("incorrect record type"));
     }
     for (const Block& block : this->getRecordItems()) {
@@ -210,13 +210,17 @@ RevokeRecord::RevokeRecord(Record record):
 }
 
 void
-RevokeRecord::addCertificateNameItem(const Name &certificateName){
+RevocationRecord::addCertificateNameItem(const Name &certificateName){
     m_revoked_cert_list.emplace_back(certificateName);
     addRecordItem(certificateName.wireEncode());
 }
 
 const std::list<Name> &
-RevokeRecord::getRevokedCertificates() const{
+RevocationRecord::getRevokedCertificates() const{
     return m_revoked_cert_list;
 }
+
+GenesisRecord::GenesisRecord(const std::string &identifier) :
+    Record(RecordType::GENESIS_RECORD, identifier) {}
+
 }  // namespace dledger

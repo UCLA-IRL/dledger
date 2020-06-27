@@ -26,7 +26,7 @@ makeData(const std::string& name, const std::string& content)
 }
 
 void periodicAddRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler) {
-    Record record(RecordType::GenericRecord, std::to_string(std::rand()));
+    Record record(RecordType::GENERIC_RECORD, std::to_string(std::rand()));
     record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
     record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
     record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));

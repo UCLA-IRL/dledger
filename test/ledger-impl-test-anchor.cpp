@@ -23,7 +23,7 @@ std::string peerList[] = {
 std::string anchorName = "/dledger/test-anchor";
 
 void addCertificateRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger) {
-    CertRecord record(std::to_string(std::rand()));
+    CertificateRecord record(std::to_string(std::rand()));
     const auto& pib = keychain.getPib();
 
     for (const std::string& peer : peerList) {

@@ -5,8 +5,6 @@
 #include <ndn-cxx/security/verification-helpers.hpp>
 #include "cert-list.h"
 
-const int KEY_COMPONENT_OFFSET = -4;
-
 dledger::CertList::CertList(const Config &config) : m_config(config){
 }
 
@@ -32,7 +30,6 @@ bool dledger::CertList::verifySignature(const Data& data) const {
 bool dledger::CertList::verifySignature(const Interest& interest) const{
     SignatureInfo info(interest.getName().get(-2).blockFromValue());
     auto identity = info.getKeyLocator().getName().getPrefix(-2);
-    std::cout << identity << std::endl;
     auto iterator = m_peerCertificates.find(identity);
     if (iterator == m_peerCertificates.cend()) return false;
     for (const auto& cert : iterator->second) {

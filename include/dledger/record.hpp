@@ -11,11 +11,11 @@ using namespace ndn;
 namespace dledger {
 
 enum RecordType {
-  BaseRecord = 0,
-  GenericRecord = 1,
-  CertificateRecord = 2,
-  RevocationRecord = 3,
-  GenesisRecord = 4,
+  BASE_RECORD = 0,
+  GENERIC_RECORD = 1,
+  CERTIFICATE_RECORD = 2,
+  REVOCATION_RECORD = 3,
+  GENESIS_RECORD = 4,
 };
 
 /**
@@ -50,7 +50,7 @@ public: // used for preparing a new record before appending it into the DLedger
    *       This cannot be used when a record has not been appended into the ledger
    * @p recordItem, input, the record payload to add.
    */
-  std::string
+  Name
   getRecordName() const;
 
   /**
@@ -180,17 +180,17 @@ public:
   GenericRecord(const std::string& identifer);
 };
 
-class CertRecord : public Record
+class CertificateRecord : public Record
 {
 public:
-  CertRecord(const std::string& identifer);
+  CertificateRecord(const std::string& identifer);
 
   /**
    * Construct Revocation record from received record
    * May throw exception if the format is incorrect
    * @param record
    */
-  CertRecord(Record record);
+  CertificateRecord(Record record);
 
   void
   addCertificateItem(const security::v2::Certificate& certificate);
@@ -202,16 +202,16 @@ private:
   std::list<security::v2::Certificate> m_cert_list;
 };
 
-class RevokeRecord : public Record {
+class RevocationRecord : public Record {
 public:
-    RevokeRecord(const std::string &identifer);
+    RevocationRecord(const std::string &identifer);
 
     /**
      * Construct Revocation record from received record
      * May throw exception if the format is incorrect
      * @param record
      */
-    RevokeRecord(Record
+    RevocationRecord(Record
     record);
 
     void
@@ -224,21 +224,26 @@ private:
     std::list<Name> m_revoked_cert_list;
 };
 
+class GenesisRecord : public Record {
+public:
+    GenesisRecord(const std::string& identifier);
+};
+
 inline std::string
 recordTypeToString(const RecordType& type)
 {
   switch (type)
   {
-  case RecordType::GenericRecord:
+  case RecordType::GENERIC_RECORD:
     return "Generic";
 
-  case RecordType::CertificateRecord:
+  case RecordType::CERTIFICATE_RECORD:
     return "Cert";
 
-  case RecordType::RevocationRecord:
+  case RecordType::REVOCATION_RECORD:
     return "Revocation";
 
-  case RecordType::GenesisRecord:
+  case RecordType::GENESIS_RECORD:
     return "Genesis";
 
   default:
@@ -249,11 +254,11 @@ recordTypeToString(const RecordType& type)
 inline RecordType
 stringToRecordType(const std::string& type)
 {
-  if (type == "Generic") return RecordType::GenericRecord;
-  else if (type == "Cert") return RecordType::CertificateRecord;
-  else if (type == "Revocation") return RecordType::RevocationRecord;
-  else if (type == "Genesis") return RecordType::GenesisRecord;
-  else return RecordType::BaseRecord;
+  if (type == "Generic") return RecordType::GENERIC_RECORD;
+  else if (type == "Cert") return RecordType::CERTIFICATE_RECORD;
+  else if (type == "Revocation") return RecordType::REVOCATION_RECORD;
+  else if (type == "Genesis") return RecordType::GENESIS_RECORD;
+  else return RecordType::BASE_RECORD;
 }
 
 } // namespace dledger
