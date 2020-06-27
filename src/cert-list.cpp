@@ -13,7 +13,8 @@ dledger::CertList::CertList(const Config &config) : m_config(config){
 void dledger::CertList::insert(const security::v2::Certificate& certificate) {
     if (m_revokedCertificates.count(certificate.getFullName()))
         return;
-    m_peerCertificates[m_config.trustAnchorCert->getIdentity()].push_back(*m_config.trustAnchorCert);
+    std::cout << "Insert certificate " << certificate.getName() << std::endl;
+    m_peerCertificates[certificate.getIdentity()].push_back(certificate);
 }
 
 bool dledger::CertList::verifySignature(const Data& data) const {
@@ -29,7 +30,9 @@ bool dledger::CertList::verifySignature(const Data& data) const {
 }
 
 bool dledger::CertList::verifySignature(const Interest& interest) const{
-    auto identity = interest.getName().getPrefix(m_config.peerPrefix.size());
+    SignatureInfo info(interest.getName().get(-2).blockFromValue());
+    auto identity = info.getKeyLocator().getName().getPrefix(-2);
+    std::cout << identity << std::endl;
     auto iterator = m_peerCertificates.find(identity);
     if (iterator == m_peerCertificates.cend()) return false;
     for (const auto& cert : iterator->second) {
@@ -48,4 +51,10 @@ void dledger::CertList::revoke(const Name& certificateName) {
     m_revokedCertificates.insert(certificateName);
     auto &list = m_peerCertificates[getCertificateNameIdentity(certificateName)];
     list.remove_if([certificateName](const ndn::security::v2::Certificate& cert){return cert.getFullName() == certificateName;});
+}
+
+bool dledger::CertList::authorizedToGenerate() const {
+    auto iterator = m_peerCertificates.find(m_config.peerPrefix);
+    if (iterator == m_peerCertificates.cend()) return false;
+    return !iterator->second.empty();
 }

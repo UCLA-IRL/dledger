@@ -53,7 +53,7 @@ main(int argc, char** argv)
   std::shared_ptr<Config> config = nullptr;
   try {
     config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName,
-            std::getenv("HOME") + std::string("/dledger/dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName));
+            std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName));
   }
   catch(const std::exception& e) {
     std::cout << e.what() << std::endl;

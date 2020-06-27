@@ -20,5 +20,9 @@ cd build
 ./backend-test
 
 nfdc strategy set /dledger-multicast /localhost/nfd/strategy/multicast
+
+
+ndnsec-sign-req /dledger/test-anchor > dledger-anchor.cert 
+
 ./ledger-impl-test
 ```

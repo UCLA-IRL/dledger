@@ -22,6 +22,7 @@ namespace dledger {
         bool verifySignature(const Data& data) const;
         bool verifySignature(const Interest& interest) const;
         void revoke(const Name& certificateName);
+        bool authorizedToGenerate() const;
 
         Name getCertificateNameIdentity(const Name& certificateName) const;
 

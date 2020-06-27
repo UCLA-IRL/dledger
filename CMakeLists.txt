@@ -22,7 +22,9 @@ set(DLEDGER_LIB_SOURCE_FILES
     ./src/record.cpp
     ./src/config.cpp
     ./src/record_name.cpp
-    ./src/record_name.hpp src/cert-list.cpp src/cert-list.h)
+    ./src/record_name.hpp
+    ./src/cert-list.cpp
+    ./src/cert-list.h)
 
 # include
 include_directories(./include ./src)
@@ -46,3 +48,5 @@ target_link_libraries(record-test PUBLIC dledger)
 add_executable(ledger-impl-test ./test/ledger-impl-test.cpp)
 target_link_libraries(ledger-impl-test PUBLIC dledger)
 
+add_executable(ledger-impl-test-anchor ./test/ledger-impl-test-anchor.cpp)
+target_link_libraries(ledger-impl-test-anchor PUBLIC dledger)

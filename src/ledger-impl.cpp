@@ -74,7 +74,7 @@ LedgerImpl::LedgerImpl(const Config& config,
   m_network.setInterestFilter(m_config.peerPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
   m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2), nullptr, nullptr);
   m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2), nullptr, nullptr);
-  std::cout << "STEP 2" << std::endl
+  std::cout << "STEP 1" << std::endl
             << "- Prefixes " << m_config.peerPrefix.toUri() << ","
             << syncName.toUri() << ","
             << notifName.toUri()
@@ -113,6 +113,9 @@ LedgerImpl::createRecord(Record& record)
   std::cout << "[LedgerImpl::addRecord] Add new record" << std::endl;
   if (m_tailRecords.empty()) {
     return ReturnCode::noTailingRecord();
+  }
+  if (!m_certList.authorizedToGenerate()) {
+      return ReturnCode::signingError("No Valid Certificate");
   }
 
   std::vector<std::pair<Name, int>> recordList;
@@ -621,6 +624,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
         if (it->second.refSet.size() >= m_config.confirmWeight) {
             std::cout << "confirmed " << it->first.toUri() << std::endl;
             if (!it->second.referenceVerified) {
+                it->second.referenceVerified = true;
                 referenceNeedUpdate = true;
                 onRecordAccepted(m_backend.getRecord(it->first));
             }
