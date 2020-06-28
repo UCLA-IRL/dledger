@@ -44,12 +44,11 @@ LedgerImpl::dumpList(const std::map<Name, TailingRecordState>& weight)
 
 LedgerImpl::LedgerImpl(const Config& config,
                        security::KeyChain& keychain,
-                       Face& network, std::string id)
+                       Face& network)
     : Ledger()
     , m_config(config)
     , m_keychain(keychain)
     , m_network(network)
-    , m_id(std::move(id))
     , m_scheduler(network.getIoService())
     , m_backend(config.databasePath)
     , m_certList(config)
@@ -86,7 +85,7 @@ LedgerImpl::LedgerImpl(const Config& config,
   // Make the genesis data
   for (int i = 0; i < DEFAULT_GENESIS_BLOCKS; i++) {
     GenesisRecord genesisRecord((std::to_string(i)));
-    RecordName recordName = RecordName::generateGenesisRecordName(config, i);
+    RecordName recordName = RecordName::generateRecordName(config, genesisRecord);
     auto data = make_shared<Data>(recordName);
     auto contentBlock = makeEmptyBlock(tlv::Content);
     genesisRecord.wireEncode(contentBlock);
@@ -154,8 +153,6 @@ LedgerImpl::createRecord(Record& record)
     return ReturnCode::notEnoughTailingRecord();
   }
 
-  // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
-  // each <> represent only one component
   Name dataName = RecordName::generateRecordName(m_config, record);
   auto data = make_shared<Data>(dataName);
   auto contentBlock = makeEmptyBlock(tlv::Content);
@@ -298,7 +295,7 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
         // format check
         dataRecord = Record(data);
         dataRecord.checkPointerValidity(
-                m_config.peerPrefix.getSubName(0, m_config.peerPrefix.size() - 1), m_config.precedingRecordNum);
+                m_config.peerPrefix.getPrefix(m_config.peerPrefix.size() - 1), m_config.precedingRecordNum);
     } catch (const std::exception &e) {
         std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
         return false;
@@ -369,6 +366,8 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
             std::cout << "-- Bad revocation record format. " << std::endl;
             return false;
         }
+    } else {
+        std::cout << "-- Not a certificate/revocation record" << std::endl;
     }
 
     std::cout << "- Step 6: Check App Logic" << std::endl;
@@ -502,7 +501,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
   try {
       Record record(data);
       if (record.getType() == RecordType::GENESIS_RECORD) {
-          throw std::runtime_error("should not get Genesis record");
+          throw std::runtime_error("We should not get Genesis record");
       }
 
       if (!checkSyntaxValidityOfRecord(data)) {
@@ -694,9 +693,9 @@ void LedgerImpl::onRecordAccepted(const Record &record){
 }
 
 std::unique_ptr<Ledger>
-Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& face, std::string id)
+Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& face)
 {
-  return std::make_unique<LedgerImpl>(config, keychain, face, id);
+  return std::make_unique<LedgerImpl>(config, keychain, face);
 }
 
 

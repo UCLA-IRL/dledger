@@ -45,6 +45,9 @@ Record::getPointersFromHeader() const
 void
 Record::addRecordItem(const Block& recordItem)
 {
+  if (m_data != nullptr) {
+    BOOST_THROW_EXCEPTION(std::runtime_error("Cannot modify built record"));
+  }
   m_contentItems.push_back(recordItem);
 }
 
@@ -63,6 +66,9 @@ Record::isEmpty() const
 void
 Record::addPointer(const Name& pointer)
 {
+  if (m_data != nullptr) {
+      BOOST_THROW_EXCEPTION(std::runtime_error("Cannot modify built record"));
+  }
   m_recordPointers.push_back(pointer);
 }
 

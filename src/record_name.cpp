@@ -51,14 +51,15 @@ namespace dledger {
             return "";
     }
 
-    RecordName RecordName::generateGenesisRecordName(Config config, int i) {
-        Name recordName(config.peerPrefix.getSubName(0, config.peerPrefix.size() - 1));
-        recordName.append("genesis").append(recordTypeToString(GENESIS_RECORD)).append(std::to_string(i));
-        recordName.appendTimestamp(time::system_clock::time_point());
-        return recordName;
-    }
-
-    RecordName RecordName::generateRecordName(Config config, Record record) {
+    RecordName RecordName::generateRecordName(const Config& config, const Record& record) {
+        if (record.getType() == GENESIS_RECORD) {
+            Name recordName(config.peerPrefix.getSubName(0, config.peerPrefix.size() - 1));
+            recordName.append("genesis")
+            .append(recordTypeToString(record.getType()))
+            .append(record.getUniqueIdentifier());
+            recordName.appendTimestamp(time::system_clock::time_point());
+            return recordName;
+        }
         Name recordName(config.peerPrefix);
         recordName.append(recordTypeToString(record.getType()))
         .append(record.getUniqueIdentifier())

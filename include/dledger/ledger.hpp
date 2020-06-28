@@ -22,7 +22,7 @@ public:
    * @p face, input, the localhost NDN face to send/receive NDN packets.
    */
   static std::unique_ptr<Ledger>
-  initLedger(const Config& config, security::KeyChain& keychain, Face& face, std::string id);
+  initLedger(const Config& config, security::KeyChain& keychain, Face& face);
 
   Ledger() = default;
   virtual ~Ledger() = default;

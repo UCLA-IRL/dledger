@@ -107,6 +107,15 @@ public: // used for generating a new record before appending it into the DLedger
   addPointer(const Name& pointer);
 
   /**
+   * validate the pointers in a header.
+   * @param prefix application config according to the config
+   * @param numPointers number of pointer according to the config
+   * @note This function is supposed to be used by the DLedger class only
+   */
+  void
+  checkPointerValidity(const Name& prefix, int numPointers) const;
+
+  /**
    * Encode the record header and body into the block.
    * @p block, output, the Data Content block to carry the encoded record.
    */
@@ -137,9 +146,6 @@ private:
 
   void
   bodyWireDecode(const Block& dataContent);
-
-  void
-  checkPointerValidity(const Name& prefix, int numPointers) const;
 
 private:
   /**

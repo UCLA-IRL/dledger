@@ -25,8 +25,7 @@ public:
     std::string getImplicitDigest() const;
 
     //generate names
-    static RecordName generateGenesisRecordName(Config config, int i);
-    static RecordName generateRecordName(Config config, Record record);
+    static RecordName generateRecordName(const Config& config, const Record& record);
     };
 
 }
