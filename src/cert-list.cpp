@@ -45,6 +45,7 @@ Name dledger::CertList::getCertificateNameIdentity(const Name& certificateName) 
 }
 
 void dledger::CertList::revoke(const Name& certificateName) {
+    std::cout << "Revoke certificate " << certificateName << std::endl;
     m_revokedCertificates.insert(certificateName);
     auto &list = m_peerCertificates[getCertificateNameIdentity(certificateName)];
     list.remove_if([certificateName](const ndn::security::v2::Certificate& cert){return cert.getFullName() == certificateName;});

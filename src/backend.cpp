@@ -23,7 +23,7 @@ Backend::~Backend()
 }
 
 shared_ptr<Data>
-Backend::getRecord(const Name& recordName)
+Backend::getRecord(const Name& recordName) const
 {
   const auto& nameStr = recordName.toUri();
   leveldb::Slice key = nameStr;
@@ -62,6 +62,19 @@ Backend::deleteRecord(const Name& recordName)
     std::cerr << "Unable to delete value from database, key: " << nameStr << std::endl;
     std::cerr << s.ToString() << std::endl;
   }
+}
+
+std::list<Name>
+Backend::listRecord(const Name& prefix) const
+{
+    std::list<Name> names;
+    leveldb::Iterator* it = m_db->NewIterator(leveldb::ReadOptions());
+    for (it->Seek(prefix.toUri()); it->Valid() && prefix.isPrefixOf(Name(it->key().ToString())); it->Next()) {
+        names.emplace_back(it->key().ToString());
+    }
+    assert(it->status().ok());  // Check for any errors found during the scan
+    delete it;
+    return std::move(names);
 }
 
 }  // namespace dledger

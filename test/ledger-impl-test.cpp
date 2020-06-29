@@ -60,7 +60,7 @@ main(int argc, char** argv)
     return 1;
   }
 
-  shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face, idName));
+  shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
 
   Scheduler scheduler(ioService);
   periodicAddRecord(ledger, scheduler);

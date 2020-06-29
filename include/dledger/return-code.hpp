@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
+#include <utility>
 
 namespace dledger {
 
@@ -16,11 +17,11 @@ enum ErrorCode {
 
 class ReturnCode {
 public:
-  ReturnCode() noexcept : m_errorCode(EC_OK), m_status("") {}
-  ReturnCode(ErrorCode code, const std::string& reason) noexcept : m_errorCode(code), m_status(reason) {}
+  ReturnCode(std::string value) noexcept : m_errorCode(EC_OK), m_status(std::move(value)) {}
+  ReturnCode(ErrorCode code, std::string reason) noexcept : m_errorCode(code), m_status(std::move(reason)) {}
 
   // init a success return code
-  static ReturnCode noError() { return ReturnCode(); }
+  static ReturnCode noError(std::string message = "") { return ReturnCode(std::move(message)); }
 
   // init an error caused by no tailing record
   static ReturnCode noTailingRecord() { return ReturnCode(EC_NoTailingRecord, "No Tailing Record"); }

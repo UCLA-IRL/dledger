@@ -30,10 +30,13 @@ public:
   createRecord(Record& record) override;
 
   optional<Record>
-  getRecord(const std::string& recordName) override;
+  getRecord(const std::string& recordName) const override;
 
   bool
-  hasRecord(const std::string& recordName) override;
+  hasRecord(const std::string& recordName) const override;
+
+  std::list<Name>
+  listRecord(const std::string& prefix) const override;
 
 private:
   void

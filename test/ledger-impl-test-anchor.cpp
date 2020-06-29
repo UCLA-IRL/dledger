@@ -22,7 +22,7 @@ std::string peerList[] = {
 
 std::string anchorName = "/dledger/test-anchor";
 
-void addCertificateRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger) {
+std::string addCertificateRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger) {
     CertificateRecord record(std::to_string(std::rand()));
     const auto& pib = keychain.getPib();
 
@@ -48,7 +48,25 @@ void addCertificateRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledge
     if (!result.success()) {
         std::cout << "- Adding record error : " << result.what() << std::endl;
     }
+    return result.what();
 }
+
+std::string addRevokeRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger, std::string certRecordName) {
+    RevocationRecord record(std::to_string(std::rand()));
+    auto fetchResult = ledger->getRecord(certRecordName);
+    assert(fetchResult.has_value());
+    auto certRecord = CertificateRecord(*fetchResult);
+    record.addCertificateNameItem(certRecord.getCertificates().begin()->getFullName());
+
+    ReturnCode result = ledger->createRecord(record);
+    if (!result.success()) {
+        std::cout << "- Adding record error : " << result.what() << std::endl;
+    }
+
+    return result.what();
+}
+
+
 
 int
 main(int argc, char** argv)
@@ -66,13 +84,17 @@ main(int argc, char** argv)
         return 1;
     }
 
-    shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face, "test-anchor"));
+    shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
 
     if (!config->trustAnchorCert->isValid()) {
         std::cout << "Anchor certificate expired. " << std::endl;
+        return 1;
     }
 
-    addCertificateRecord(keychain, ledger);
+    auto recordName = addCertificateRecord(keychain, ledger);
+    Scheduler scheduler(ioService);
+    scheduler.schedule(time::seconds(60),
+            [ledger, &keychain, recordName]{addRevokeRecord(keychain, ledger, recordName);});
 
     face.processEvents();
     return 0;

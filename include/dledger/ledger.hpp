@@ -11,7 +11,8 @@
 using namespace ndn;
 namespace dledger {
 
-typedef function<bool(const Data&)> OnRecordAppLogic;
+typedef function<bool(const Data&)> OnRecordAppCheck;
+typedef function<void(const Record&)> OnRecordAppAccepted;
 
 class Ledger {
 public:
@@ -39,26 +40,43 @@ public:
    * @p recordName, input, the name of the record, which is an NDN full name (i.e., containing ImplicitSha256DigestComponent component)
    */
   virtual optional<Record>
-  getRecord(const std::string& recordName) = 0;
+  getRecord(const std::string& recordName) const = 0;
 
   /**
    * Check whether the record exists in the Dledger.
    * @p recordName, input, the name of the record, which is an NDN full name (i.e., containing ImplicitSha256DigestComponent component)
    */
   virtual bool
-  hasRecord(const std::string& recordName) = 0;
+  hasRecord(const std::string& recordName) const = 0;
+
+  /**
+    * list the record exists in the Dledger.
+    * @p recordName, input, the name of the record, which is an NDN name prefix.
+    */
+  virtual std::list<Name>
+  listRecord(const std::string& prefix) const = 0;
 
   /**
    * Set additional checking rules when receiving a new record.
-   * @p onRecordAppLogic, input, a callback function invoked whenever there is a new record received from the Internet.
+   * @p onRecordAppCheck, input, a callback function invoked whenever there is a new record received from the Internet.
    */
   virtual void
-  setOnRecordAppLogic(const OnRecordAppLogic& onRecordAppLogic) {
-    m_onRecordAppLogic = onRecordAppLogic;
+  setOnRecordAppCheck(const OnRecordAppCheck& onRecordAppCheck) {
+      m_onRecordAppCheck = onRecordAppCheck;
+  }
+
+  /**
+    * Set additional action when a new record is accepted.
+    * @p onRecordAppCheck, input, a callback function invoked whenever there is a new record is accepted.
+    */
+  virtual void
+  setOnRecordAppAccepted(const OnRecordAppAccepted& onRecordAppAccepted) {
+      m_onRecordAppAccepted = onRecordAppAccepted;
   }
 
 protected:
-  OnRecordAppLogic m_onRecordAppLogic;
+  OnRecordAppCheck m_onRecordAppCheck;
+  OnRecordAppAccepted m_onRecordAppAccepted;
 };
 
 } // namespace dledger

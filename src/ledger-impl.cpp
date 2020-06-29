@@ -187,14 +187,18 @@ LedgerImpl::createRecord(Record& record)
 
   // add new record into the ledger
   addToTailingRecord(record, true);
-  return ReturnCode::noError();
+  return ReturnCode::noError(data->getFullName().toUri());
 }
 
 optional<Record>
-LedgerImpl::getRecord(const std::string& recordName)
+LedgerImpl::getRecord(const std::string& recordName) const
 {
   std::cout << "getRecord Called \n";
-  auto dataPtr = m_backend.getRecord(Name(recordName));
+  Name rName = recordName;
+  if (m_tailRecords.count(rName) && !m_tailRecords.find(rName)->second.referenceVerified) {
+      return nullopt;
+  }
+  auto dataPtr = m_backend.getRecord(rName);
   if (dataPtr != nullptr) {
     return Record(dataPtr);
   }
@@ -204,10 +208,18 @@ LedgerImpl::getRecord(const std::string& recordName)
 }
 
 bool
-LedgerImpl::hasRecord(const std::string& recordName)
+LedgerImpl::hasRecord(const std::string& recordName) const
 {
   auto dataPtr = m_backend.getRecord(Name(recordName));
-    return dataPtr != nullptr;
+  return dataPtr != nullptr;
+}
+
+std::list<Name>
+LedgerImpl::listRecord(const std::string& prefix) const
+{
+    auto list = m_backend.listRecord(Name(prefix));
+    list.remove_if([&](const auto& name) {return !(m_tailRecords.count(name) && !m_tailRecords.find(name)->second.referenceVerified);});
+    return list;
 }
 
 void
@@ -295,7 +307,7 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
         // format check
         dataRecord = Record(data);
         dataRecord.checkPointerValidity(
-                m_config.peerPrefix.getPrefix(m_config.peerPrefix.size() - 1), m_config.precedingRecordNum);
+                m_config.peerPrefix.getPrefix( -1), m_config.precedingRecordNum);
     } catch (const std::exception &e) {
         std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
         return false;
@@ -352,7 +364,7 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
             auto revokeRecord = RevocationRecord(dataRecord);
             bool isAnchor = readString(m_config.trustAnchorCert->getIdentity().get(-1)) == revokeRecord.getProducerID();
             for (const auto& certName: revokeRecord.getRevokedCertificates()) {
-                if (!security::v2::Certificate::isValidName(certName)) {
+                if (!certName.get(-1).isImplicitSha256Digest() || !security::v2::Certificate::isValidName(certName.getPrefix(-1))) {
                     std::cout << "-- invalid revoked certificate: "<< certName << std::endl;
                     return false;
                 }
@@ -371,7 +383,7 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
     }
 
     std::cout << "- Step 6: Check App Logic" << std::endl;
-    if (m_onRecordAppLogic != nullptr && !m_onRecordAppLogic(data)) {
+    if (m_onRecordAppCheck != nullptr && !m_onRecordAppCheck(data)) {
         std::cout << "-- App Logic check failed" << std::endl;
         return false;
     }
@@ -667,7 +679,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
 }
 
 void LedgerImpl::onRecordAccepted(const Record &record){
-    std::cout << "- Step 5: Check certificate/revocation record format" << std::endl;
+    std::cout << "- [LedgerImpl::onRecordAccepted] accept record" << std::endl;
     if (record.getType() == RecordType::CERTIFICATE_RECORD) {
         try {
             auto certRecord = CertificateRecord(record);
@@ -689,6 +701,10 @@ void LedgerImpl::onRecordAccepted(const Record &record){
             std::cout << "-- Bad revocation record format. " << std::endl;
             return;
         }
+    }
+
+    if (m_onRecordAppAccepted != nullptr) {
+        m_onRecordAppAccepted(record);
     }
 }
 
