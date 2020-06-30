@@ -1,6 +1,5 @@
 #include "dledger/record.hpp"
 #include "dledger/ledger.hpp"
-#include "ledger-impl.hpp"
 #include <iostream>
 #include <ndn-cxx/security/signature-sha256-with-rsa.hpp>
 #include <ndn-cxx/util/scheduler.hpp>

@@ -1,6 +1,5 @@
 #include "dledger/record.hpp"
 #include "dledger/ledger.hpp"
-#include "ledger-impl.hpp"
 #include <iostream>
 #include <ndn-cxx/security/signature-sha256-with-rsa.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
@@ -43,7 +42,7 @@ int
 main(int argc, char** argv)
 {
   if (argc < 2) {
-      fprintf(stderr, "Usage: %s id_name", argv[0]);
+      fprintf(stderr, "Usage: %s id_name\n", argv[0]);
       return 1;
   }
   std::string idName = argv[1];
