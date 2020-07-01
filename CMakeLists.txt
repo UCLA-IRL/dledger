@@ -54,6 +54,11 @@ target_link_libraries(ledger-impl-test PUBLIC dledger)
 add_executable(ledger-impl-test-anchor ./test/ledger-impl-test-anchor.cpp)
 target_link_libraries(ledger-impl-test-anchor PUBLIC dledger)
 
+if (BUILD_DIGRAPH)
+    add_executable(ledger-impl-test-graph ./test/ledger-impl-test-graph.cpp)
+    target_link_libraries(ledger-impl-test-graph PUBLIC dledger)
+endif (BUILD_DIGRAPH)
+
 include(GNUInstallDirs)
 install(TARGETS dledger
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -65,3 +70,8 @@ install(TARGETS ledger-impl-test
 
 install(TARGETS ledger-impl-test-anchor
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+if (BUILD_DIGRAPH)
+    install(TARGETS ledger-impl-test-graph
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif (BUILD_DIGRAPH)
