@@ -77,6 +77,7 @@ main(int argc, char** argv)
     try {
         config = Config::CustomizedConfig("/dledger-multicast", anchorName,
                                           std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/test-anchor"));
+        mkdir("/tmp/dledger-db/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     }
     catch(const std::exception& e) {
         std::cout << e.what() << std::endl;
