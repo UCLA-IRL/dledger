@@ -23,16 +23,6 @@ int max(int a, int b) {
 }
 
 void
-dumpList(const std::vector<Name>& list)
-{
-    std::cout << "Dump " << list.size() << " Tailing Records" << std::endl;
-    for (const auto& item : list) {
-        std::cout << item.toUri() << std::endl;
-    }
-    std::cout << std::endl << std::endl;
-}
-
-void
 LedgerImpl::dumpList(const std::map<Name, TailingRecordState>& weight)
 {
     std::cout << "Dump " << weight.size() << " Tailing Records" << std::endl;
@@ -70,15 +60,11 @@ LedgerImpl::LedgerImpl(const Config& config,
   // Register the prefix to local NFD
   Name syncName = m_config.multicastPrefix;
   syncName.append("SYNC");
-  Name notifName = m_config.multicastPrefix;
-  notifName.append("NOTIF");
   m_network.setInterestFilter(m_config.peerPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
   m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2), nullptr, nullptr);
-  m_network.setInterestFilter(notifName, bind(&LedgerImpl::onNewRecordNotification, this, _2), nullptr, nullptr);
   std::cout << "STEP 1" << std::endl
             << "- Prefixes " << m_config.peerPrefix.toUri() << ","
-            << syncName.toUri() << ","
-            << notifName.toUri()
+            << syncName.toUri()
             << " have been registered." << std::endl;
 
   //****STEP 2****
@@ -128,9 +114,8 @@ LedgerImpl::createRecord(Record& record)
   }
 
   // randomly shuffle the tailing record list
-  std::random_device rd;
-  std::default_random_engine engine{rd()};
-  std::shuffle(std::begin(recordList), std::end(recordList), engine);
+  std::mt19937_64 eng{std::random_device{}()};
+  std::shuffle(std::begin(recordList), std::end(recordList), eng);
   std::stable_sort(std::begin(recordList), std::end(recordList),
           [](const std::pair<Name, int>& a, const std::pair<Name, int>& b){return a.second < b.second;});
 
@@ -171,23 +156,14 @@ LedgerImpl::createRecord(Record& record)
   std::cout << "- Finished the generation of the new record:" << std::endl
             << "Name: " << data->getFullName().toUri() << std::endl;
 
-  // send out notification: /multicastPrefix/NOTIF/record-name/<digest>
-  Name intName(m_config.multicastPrefix);
-  intName.append("NOTIF").append(data->getFullName().wireEncode());
-  Interest interest(intName);
-  interest.setCanBePrefix(false);
-  interest.setMustBeFresh(true);
-  try {
-    m_keychain.sign(interest, security::signingByIdentity(m_config.peerPrefix));
-  }
-  catch (const std::exception& e) {
-    return ReturnCode::signingError(e.what());
-  }
-  m_network.expressInterest(interest, nullptr, bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
-
   // add new record into the ledger
   addToTailingRecord(record, true);
-  return ReturnCode::noError(data->getFullName().toUri());
+
+  //send sync interest
+  auto rc = sendSyncInterest();
+  if (rc.success())
+    return ReturnCode::noError(data->getFullName().toUri());
+  else return rc;
 }
 
 optional<Record>
@@ -223,37 +199,6 @@ LedgerImpl::listRecord(const std::string& prefix) const
 }
 
 void
-LedgerImpl::onNewRecordNotification(const Interest& interest)
-{
-  std::cout << "[LedgerImpl::onNewRecordNotification] Receive Notification of a New Record" << std::endl;
-
-  // verify the signature
-  if (!m_certList.verifySignature(interest)) {
-      std::cout << "- Bad Signature. " << std::endl;
-      return;
-  }
-
-  // /multicastPrefix/NOTIF/record-name/<digest>
-  auto nameBlock = interest.getName().get(m_config.multicastPrefix.size() + 1).blockFromValue();
-  Name recordName(nameBlock);
-  if (m_config.peerPrefix.isPrefixOf(recordName)) {
-    std::cout << "- The notification was sent by myself. Ignore" << std::endl;
-    return;
-  }
-  if (hasRecord(recordName.toUri())) {
-    std::cout << "- The record is already in the local DLedger. Ignore" << std::endl;
-    return;
-  }
-  std::cout << "- The record is not seen before. Fetch it back" << std::endl
-            << "-- " << recordName.toUri() << std::endl;
-  std::mt19937_64 eng{std::random_device{}()};
-  std::uniform_int_distribution<> dist{10, 100};
-  m_scheduler.schedule(time::milliseconds(dist(eng)), [&, recordName] {
-    fetchRecord(recordName);
-  });
-}
-
-void
 LedgerImpl::onNack(const Interest&, const lp::Nack& nack)
 {
   std::cout << "Received Nack with reason " << nack.getReason() << std::endl;
@@ -276,7 +221,7 @@ LedgerImpl::sendPeriodicSyncInterest()
   m_scheduler.schedule(time::seconds(5), [this] { sendPeriodicSyncInterest(); });
 }
 
-void LedgerImpl::sendSyncInterest() {
+ReturnCode LedgerImpl::sendSyncInterest() {
     std::cout << "[LedgerImpl::sendSyncInterest] Send SYNC Interest.\n";
     // SYNC Interest Name: /<multicastPrefix>/SYNC/digest
     // construct SYNC Interest
@@ -292,10 +237,15 @@ void LedgerImpl::sendSyncInterest() {
     syncInterest.setApplicationParameters(appParam);
     syncInterest.setCanBePrefix(false);
     syncInterest.setMustBeFresh(true);
-    m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
+    try {
+        m_keychain.sign(syncInterest, signingByIdentity(m_config.peerPrefix));
+    } catch (const std::exception& e) {
+        return ReturnCode::signingError(e.what());
+    }
     // nullptrs for data and timeout callbacks because a sync Interest is not expecting a Data back
     m_network.expressInterest(syncInterest, nullptr,
                               bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
+    return ReturnCode::noError();
 }
 
 bool
@@ -457,7 +407,13 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
       shouldSendSync = true;
     }
     else {
-      fetchRecord(recordName);
+
+        //fetch record
+        std::mt19937_64 eng{std::random_device{}()};
+        std::uniform_int_distribution<> dist{10, 100};
+        m_scheduler.schedule(time::milliseconds(dist(eng)), [&, recordName] {
+            fetchRecord(recordName);
+        });
     }
   }
   if (shouldSendSync) {

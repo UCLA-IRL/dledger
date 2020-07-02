@@ -91,8 +91,8 @@ private:
       std::set<std::string> refSet;
       bool recordPolicyVerified;
   };
-  void sendSyncInterest();
-  void dumpList(const std::map<Name, TailingRecordState>& weight);
+  ReturnCode sendSyncInterest();
+  static void dumpList(const std::map<Name, TailingRecordState>& weight);
 
   /**
    * Check if the ancestor of the record is OK
