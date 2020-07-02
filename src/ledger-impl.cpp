@@ -17,6 +17,8 @@ namespace dledger {
 const static size_t DEFAULT_GENESIS_BLOCKS = 10;
 const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds(1);
 const static time::seconds ANCESTOR_FETCH_TIMEOUT = time::seconds(10);
+const static time::seconds CLOCK_SKEW_TOLERANCE = time::seconds(120);
+const static time::seconds MAX_SYNC_RATE = time::seconds(1);
 
 int max(int a, int b) {
     return a > b ? a : b;
@@ -268,9 +270,13 @@ LedgerImpl::onTimeout(const Interest& interest)
 void
 LedgerImpl::sendPeriodicSyncInterest()
 {
-  std::cout << "[LedgerImpl::sendPeriodicSyncInterest] Send periodic SYNC Interest.\n";
 
-  sendSyncInterest();
+  if ((time::system_clock::now() - m_lastSyncTime) >= MAX_SYNC_RATE) {
+      std::cout << "[LedgerImpl::sendPeriodicSyncInterest] Send periodic SYNC Interest.\n";
+      sendSyncInterest();
+  } else {
+      std::cout << "[LedgerImpl::sendPeriodicSyncInterest] SYNC Interest sending too fast.\n";
+  }
 
   // schedule for the next SyncInterest Sending
   m_scheduler.schedule(time::seconds(5), [this] { sendPeriodicSyncInterest(); });
@@ -296,6 +302,8 @@ void LedgerImpl::sendSyncInterest() {
     // nullptrs for data and timeout callbacks because a sync Interest is not expecting a Data back
     m_network.expressInterest(syncInterest, nullptr,
                               bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
+
+    m_lastSyncTime = time::system_clock::now();
 }
 
 bool
@@ -328,11 +336,18 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
 
     std::cout << "- Step 3: Check rating limit" << std::endl;
     auto tp = dataRecord.getGenerationTimestamp();
+    if (tp > time::system_clock::now() + CLOCK_SKEW_TOLERANCE) {
+        std::cout << "-- record from too far in the future" << std::endl;
+        return false;
+    }
     if (m_rateCheck.find(producerID) == m_rateCheck.end()) {
         m_rateCheck[producerID] = tp;
     } else {
         if ((time::abs(tp - m_rateCheck[producerID]) < RECORD_PRODUCTION_INTERVAL_RATE_LIMIT)) {
+            std::cout << "-- record generation too fast from the peer" << std::endl;
             return false;
+        } else {
+            m_rateCheck[producerID] = tp;
         }
     }
 
