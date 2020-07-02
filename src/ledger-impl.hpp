@@ -122,6 +122,7 @@ private:
 
   // Siqi's temp member variable
   std::set<Name> m_badRecords;
+  time::system_clock::TimePoint m_lastSyncTime;
 };
 
 // class Ledger
