@@ -111,33 +111,26 @@ LedgerImpl::createRecord(Record& record)
 
   std::vector<std::pair<Name, int>> recordList;
   for (const auto &item : m_tailRecords) {
-      if (item.second.referenceVerified)
-            recordList.emplace_back(item.first, item.second.refSet.size());
+      if (item.second.refSet.size() <= m_config.appendWeight &&
+            !m_config.peerPrefix.isPrefixOf(item.first) &&
+            item.second.referenceVerified) {
+          recordList.emplace_back(item.first, item.second.refSet.size());
+      }
   }
 
   // randomly shuffle the tailing record list
   std::mt19937_64 eng{std::random_device{}()};
   std::shuffle(std::begin(recordList), std::end(recordList), eng);
-  std::stable_sort(std::begin(recordList), std::end(recordList),
-          [](const std::pair<Name, int>& a, const std::pair<Name, int>& b){return a.second < b.second;});
 
   // fulfill the record content with preceding record IDs
   // removal of preceding record is done by addToTailingRecord() at the end
-  int counter = 0;
-  for (const auto &tailRecord : recordList) {
-      if (tailRecord.second > m_config.appendWeight) {
-          std::cout << "-- tail records too deep. Failed\n";
-          break;
-      }
-      if (!m_config.peerPrefix.isPrefixOf(tailRecord.first)) {
-          record.addPointer(tailRecord.first);
-          counter ++;
-      }
-      if (counter >= m_config.precedingRecordNum)
-          break;
+  if (recordList.size() < m_config.precedingRecordNum) {
+      return ReturnCode::notEnoughTailingRecord();
   }
-  if (counter < m_config.precedingRecordNum) {
-    return ReturnCode::notEnoughTailingRecord();
+  for (const auto &tailRecord : recordList) {
+      record.addPointer(tailRecord.first);
+      if (record.getPointersFromHeader().size() >= m_config.precedingRecordNum)
+          break;
   }
 
   Name dataName = RecordName::generateRecordName(m_config, record);
