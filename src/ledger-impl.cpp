@@ -18,7 +18,6 @@ const static size_t DEFAULT_GENESIS_BLOCKS = 10;
 const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds(1);
 const static time::seconds ANCESTOR_FETCH_TIMEOUT = time::seconds(10);
 const static time::seconds CLOCK_SKEW_TOLERANCE = time::seconds(120);
-const static time::seconds MAX_SYNC_RATE = time::seconds(1);
 
 int max(int a, int b) {
     return a > b ? a : b;
@@ -95,7 +94,7 @@ LedgerImpl::LedgerImpl(const Config& config,
 
 LedgerImpl::~LedgerImpl()
 {
-    m_network.shutdown();
+    if (m_syncEventID) m_syncEventID.cancel();
 }
 
 ReturnCode
@@ -208,16 +207,7 @@ LedgerImpl::onTimeout(const Interest& interest)
 void
 LedgerImpl::sendPeriodicSyncInterest()
 {
-
-  if ((time::system_clock::now() - m_lastSyncTime) >= MAX_SYNC_RATE) {
-      std::cout << "[LedgerImpl::sendPeriodicSyncInterest] Send periodic SYNC Interest.\n";
-      sendSyncInterest();
-  } else {
-      std::cout << "[LedgerImpl::sendPeriodicSyncInterest] SYNC Interest sending too fast.\n";
-  }
-
-  // schedule for the next SyncInterest Sending
-  m_scheduler.schedule(time::seconds(5), [this] { sendPeriodicSyncInterest(); });
+  sendSyncInterest();
 }
 
 ReturnCode LedgerImpl::sendSyncInterest() {
@@ -245,7 +235,10 @@ ReturnCode LedgerImpl::sendSyncInterest() {
     m_network.expressInterest(syncInterest, nullptr,
                               bind(&LedgerImpl::onNack, this, _1, _2), nullptr);
 
-    m_lastSyncTime = time::system_clock::now();
+
+    // schedule for the next SyncInterest Sending
+    if (m_syncEventID) m_syncEventID.cancel();
+    m_syncEventID = m_scheduler.schedule(time::seconds(5), [this] { sendPeriodicSyncInterest(); });
     return ReturnCode::noError();
 }
 

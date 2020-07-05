@@ -109,20 +109,20 @@ private:
   Config m_config;
   Face& m_network;
   Scheduler m_scheduler;
-
   Backend m_backend;
+  security::KeyChain& m_keychain;
+
   std::map<Name, TailingRecordState> m_tailRecords;
   CertList m_certList;
 
   std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
-  security::KeyChain& m_keychain;
 
   // Zhiyi's temp member variable
   std::list<std::pair<Record, time::system_clock::TimePoint>> m_syncStack;
 
   // Siqi's temp member variable
   std::set<Name> m_badRecords;
-  time::system_clock::TimePoint m_lastSyncTime;
+  scheduler::EventId m_syncEventID;
 };
 
 // class Ledger
