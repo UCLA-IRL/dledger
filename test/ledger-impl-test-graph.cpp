@@ -70,6 +70,14 @@ main(int argc, char** argv)
             if (ancestor.has_value())
                 dot_log << getNodeDigest(r) << " -> " << getNodeDigest(*ancestor) << ";" << std::endl;
         }
+
+        if (r.getType() == CERTIFICATE_RECORD) {
+            for (const auto& ptr: CertificateRecord(r).getPrevCertificates()) {
+                auto ancestor = ledger->getRecord(ptr.toUri());
+                if (ancestor.has_value())
+                    dot_log << getNodeDigest(r) << " -> " << getNodeDigest(*ancestor) << "[color=blue];" << std::endl;
+            }
+        }
   });
 
   Scheduler scheduler(ioService);
