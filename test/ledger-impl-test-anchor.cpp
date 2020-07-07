@@ -8,20 +8,36 @@
 
 #include <ndn-cxx/util/io.hpp>
 #include <ndn-cxx/security/verification-helpers.hpp>
+#include <array>
 
 using namespace dledger;
+std::array<std::string, 5> peerList1 = {
+        "/dledger/test-1b",
+        "/dledger/test-1a",
+        "/dledger/test-1c",
+        "/dledger/test-1d",
+        "/dledger/test-1e"
+};
 
-std::string peerList[] = {
-        "/dledger/test-a",
-        "/dledger/test-b",
-        "/dledger/test-c",
-        "/dledger/test-d",
-        "/dledger/test-e",
+std::array<std::string, 5> peerList2 = {
+        "/dledger/test-2a",
+        "/dledger/test-2b",
+        "/dledger/test-2c",
+        "/dledger/test-2d",
+        "/dledger/test-2e"
+};
+
+std::array<std::string, 5> peerList3 = {
+        "/dledger/test-2a",
+        "/dledger/test-1b",
+        "/dledger/test-2a",
+        "/dledger/test-1b",
+        "/dledger/test-1a",
 };
 
 std::string anchorName = "/dledger/test-anchor";
 
-std::string addCertificateRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger) {
+std::string addCertificateRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger, const std::array<std::string, 5>& peerList) {
     CertificateRecord record(std::to_string(std::rand()));
     const auto& pib = keychain.getPib();
 
@@ -91,11 +107,15 @@ main(int argc, char** argv)
         return 1;
     }
 
-    auto recordName = addCertificateRecord(keychain, ledger);
+    auto recordName = addCertificateRecord(keychain, ledger, peerList1);
     Scheduler scheduler(ioService);
-    scheduler.schedule(time::seconds(60),
+    scheduler.schedule(time::seconds(1),
+                       [ledger, &keychain]{addCertificateRecord(keychain, ledger, peerList2);});
+    scheduler.schedule(time::seconds(45),
             [ledger, &keychain, recordName]{addRevokeRecord(keychain, ledger, recordName);});
+    scheduler.schedule(time::seconds(150),
+                       [ledger, &keychain]{addCertificateRecord(keychain, ledger, peerList3);});
 
-    face.processEvents();
+    face.processEvents(time::seconds(180));
     return 0;
 }

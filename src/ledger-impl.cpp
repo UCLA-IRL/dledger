@@ -14,7 +14,7 @@
 using namespace ndn;
 namespace dledger {
 
-const static size_t DEFAULT_GENESIS_BLOCKS = 10;
+const static size_t DEFAULT_GENESIS_BLOCKS = 5;
 const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds(1);
 const static time::seconds ANCESTOR_FETCH_TIMEOUT = time::seconds(10);
 const static time::seconds CLOCK_SKEW_TOLERANCE = time::seconds(120);
@@ -588,11 +588,13 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
     }
     if (!badRecord && readyToAdd) {
         std::cout << "- Good record. Will add record in to the ledger" << std::endl;
+        std::cout << "-- " << record.getRecordName() << std::endl;
         addToTailingRecord(record, checkReferenceValidityOfRecord(*(record.m_data)));
         return true;
     }
     if (badRecord) {
         std::cout << "- Bad record. Will remove it and all its later records" << std::endl;
+        std::cout << "-- " << record.getRecordName() << std::endl;
         m_badRecords.insert(record.getRecordName());
         return true;
     }

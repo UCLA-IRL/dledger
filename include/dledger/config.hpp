@@ -30,15 +30,15 @@ public:
   /**
    * The maximum weight of record that can be referenced.
    */
-  int appendWeight = 1;
+  int appendWeight = 2;
   /**
    * The maximum weight of record that can be allowed.
    */
-  int contributionWeight = 2;
+  int contributionWeight = 3;
   /**
    * The weight of record that can be confirmed and be appended without contribution policy.
    */
-  int confirmWeight = 2;
+  int confirmWeight = 3;
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */

@@ -35,8 +35,35 @@ void periodicAddRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler) {
     }
 
     // schedule for the next record generation
-    scheduler.schedule(time::seconds(10), [ledger, &scheduler] { periodicAddRecord(ledger, scheduler); });
+    scheduler.schedule(time::seconds(5), [ledger, &scheduler] { periodicAddRecord(ledger, scheduler); });
 }
+
+std::string addRevokeRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger, const std::string& id) {
+    RevocationRecord record(std::to_string(std::rand()));
+    auto recordList = ledger->listRecord("/dledger/test-anchor/Cert");
+    std::list<Name> certNames;
+    for (const auto& certRecordName: recordList) {
+        std::cout << "FOUND CERT RECORD " << certRecordName << std::endl;
+        auto fetchResult = ledger->getRecord(certRecordName.toUri());
+        assert(fetchResult.has_value());
+        CertificateRecord certRecord(*fetchResult);
+        for (const auto& cert: certRecord.getCertificates()) {
+            std::cout << "- FOUND CERTIFICATE " << cert.getFullName() << std::endl;
+            if (cert.getKeyName().toUri().find(id) != std::string::npos) {
+                record.addCertificateNameItem(cert.getFullName());
+                std::cout << "- SELECTED" << std::endl;
+            }
+        }
+    }
+
+    ReturnCode result = ledger->createRecord(record);
+    if (!result.success()) {
+        std::cout << "- Adding record error : " << result.what() << std::endl;
+    }
+
+    return result.what();
+}
+
 
 int
 main(int argc, char** argv)
@@ -64,7 +91,13 @@ main(int argc, char** argv)
 
   Scheduler scheduler(ioService);
   periodicAddRecord(ledger, scheduler);
+  if (idName == "test-2a") {
+      scheduler.schedule(time::seconds(45),
+                         [ledger, &keychain, idName] { addRevokeRecord(keychain, ledger, idName); });
+      scheduler.schedule(time::seconds(45) + time::milliseconds(800),
+                         [ledger, &keychain, idName] { addRevokeRecord(keychain, ledger, idName); });
+  }
 
-  face.processEvents();
+  face.processEvents(time::seconds(180));
   return 0;
 }

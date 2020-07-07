@@ -21,7 +21,7 @@ void periodicAddRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler) {
     }
 
     // schedule for the next record generation
-    scheduler.schedule(time::seconds(10), [ledger, &scheduler] { periodicAddRecord(ledger, scheduler); });
+    scheduler.schedule(time::seconds(5), [ledger, &scheduler] { periodicAddRecord(ledger, scheduler); });
 }
 
 std::string getNodeDigest(const Record &r) {
@@ -31,8 +31,10 @@ std::string getNodeDigest(const Record &r) {
 }
 
 std::string getNodeAttribute(const Record &r) {
-    if (r.getType() == CERTIFICATE_RECORD) return "[color=blue]";
-    if (r.getType() == REVOCATION_RECORD) return "[color=red]";
+    if (r.getType() == CERTIFICATE_RECORD) return "[fillcolor=blue, style=filled, fontcolor=white]";
+    if (r.getType() == REVOCATION_RECORD) return "[fillcolor=red, style=filled, fontcolor=white]";
+    if (r.getProducerID() == "test-2a") return "[fillcolor=yellow, style=filled]";
+    if (r.getProducerID() == "test-1b") return "[fillcolor=green, style=filled]";
     return "";
 }
 
@@ -76,7 +78,7 @@ main(int argc, char** argv)
             for (const auto& ptr: certRecord.getPrevCertificates()) {
                 auto ancestor = ledger->getRecord(ptr.toUri());
                 if (ancestor.has_value())
-                    dot_log << getNodeDigest(r) << " -> " << getNodeDigest(*ancestor) << "[color=blue];" << std::endl;
+                    dot_log << getNodeDigest(r) << " -> " << getNodeDigest(*ancestor) << "[color=blue, style=dashed];" << std::endl;
             }
         }
   });
@@ -84,6 +86,6 @@ main(int argc, char** argv)
   Scheduler scheduler(ioService);
   periodicAddRecord(ledger, scheduler);
 
-  face.processEvents();
+  face.processEvents(time::seconds(180));
   return 0;
 }
