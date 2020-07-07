@@ -72,7 +72,8 @@ main(int argc, char** argv)
         }
 
         if (r.getType() == CERTIFICATE_RECORD) {
-            for (const auto& ptr: CertificateRecord(r).getPrevCertificates()) {
+            CertificateRecord certRecord(r);
+            for (const auto& ptr: certRecord.getPrevCertificates()) {
                 auto ancestor = ledger->getRecord(ptr.toUri());
                 if (ancestor.has_value())
                     dot_log << getNodeDigest(r) << " -> " << getNodeDigest(*ancestor) << "[color=blue];" << std::endl;

@@ -110,9 +110,7 @@ LedgerImpl::createRecord(Record& record)
 
   if (record.getType() == CERTIFICATE_RECORD) {
       std::cout << "-- Certificate record: Add previous cert record: " << m_certList.getLastCertRecord() << std::endl;
-      CertificateRecord certRecord(record);
-      certRecord.addPrevCertPointer(m_certList.getLastCertRecord());
-      record = certRecord;
+      record.addRecordItem(KeyLocator(m_certList.getLastCertRecord()).wireEncode());
   }
 
   std::vector<std::pair<Name, int>> recordList;
@@ -517,7 +515,8 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       }
       if (record.getType() == CERTIFICATE_RECORD) {
           std::cout << "- Checking previous cert record" << std::endl;
-          for (const auto &prevCertName : CertificateRecord(record).getPrevCertificates()) {
+          CertificateRecord certRecord(record);
+          for (const auto &prevCertName : certRecord.getPrevCertificates()) {
               if (prevCertName.empty()) continue;
               if (m_backend.getRecord(prevCertName)) {
                   std::cout << "- Preceding Cert Record " << prevCertName << " already in the ledger" << std::endl;
@@ -574,7 +573,8 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
         }
     }
     if (record.getType() == CERTIFICATE_RECORD) {
-        for (const auto &prevCertName : CertificateRecord(record).getPrevCertificates()) {
+        CertificateRecord certRecord(record);
+        for (const auto &prevCertName : certRecord.getPrevCertificates()) {
             if (!prevCertName.empty() && !m_backend.getRecord(prevCertName)) {
                 readyToAdd = false;
             }
