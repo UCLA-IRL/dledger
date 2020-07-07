@@ -290,8 +290,6 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
         if ((time::abs(tp - m_rateCheck[producerID]) < RECORD_PRODUCTION_INTERVAL_RATE_LIMIT)) {
             std::cout << "-- record generation too fast from the peer" << std::endl;
             return false;
-        } else {
-            m_rateCheck[producerID] = tp;
         }
     }
 
@@ -688,6 +686,11 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
 
 void LedgerImpl::onRecordAccepted(const Record &record){
     std::cout << "- [LedgerImpl::onRecordAccepted] accept record" << std::endl;
+
+    //register current time
+    if (m_rateCheck[record.getProducerID()] < record.getGenerationTimestamp())
+            m_rateCheck[record.getProducerID()] = record.getGenerationTimestamp();
+
     if (record.getType() == RecordType::CERTIFICATE_RECORD) {
         try {
             auto certRecord = CertificateRecord(record);
