@@ -56,3 +56,12 @@ bool dledger::CertList::authorizedToGenerate() const {
     if (iterator == m_peerCertificates.cend()) return false;
     return !iterator->second.empty();
 }
+
+void dledger::CertList::setLastCertRecord(const Name& certName) {
+    std::cout << "Register cert record "<< certName << std::endl;
+    m_lastCertRecord = certName;
+}
+
+const Name& dledger::CertList::getLastCertRecord() const{
+    return m_lastCertRecord;
+}

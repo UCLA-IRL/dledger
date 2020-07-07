@@ -218,6 +218,9 @@ ReturnCode LedgerImpl::sendSyncInterest() {
     syncInterestName.append("SYNC");
     Interest syncInterest(syncInterestName);
     Block appParam = makeEmptyBlock(tlv::ApplicationParameters);
+    if (!m_certList.getLastCertRecord().empty()) {
+        appParam.push_back(KeyLocator(m_certList.getLastCertRecord()).wireEncode());
+    }
     for (const auto &item : m_tailRecords) {
         if (item.second.refSet.empty())
             appParam.push_back(item.first.wireEncode());
@@ -398,6 +401,23 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
   std::cout << "- Received Tailing Record Names: \n";
   bool shouldSendSync = false;
   for (const auto& item : appParam.elements()) {
+    if (item.type() == tlv::KeyLocator) {
+        try {
+            auto l = KeyLocator(item);
+            RecordName certName(l.getName());
+            if (certName.getRecordType() != CERTIFICATE_RECORD) {
+                BOOST_THROW_EXCEPTION(std::runtime_error(""));
+            }
+            if (!m_backend.getRecord(certName)) {
+                std::cout << "--- Fetch unseen certificate record "<< l.getName() << std::endl;
+                fetchRecord(certName);
+                return;
+            }
+        } catch (const std::exception& e) {
+            std::cout << "--- Error on keyLocator \n";
+        }
+        continue;
+    }
     Name recordName(item);
     std::cout << "-- " << recordName.toUri() << "\n";
     if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName].refSet.empty()) {
@@ -408,7 +428,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
       shouldSendSync = true;
     }
     else {
-
+        std::cout << "--- Fetch unseen tailing record \n";
         //fetch record
         std::mt19937_64 eng{std::random_device{}()};
         std::uniform_int_distribution<> dist{10, 100};
@@ -488,6 +508,16 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
               fetchRecord(precedingRecordName);
           }
       }
+      if (record.getType() == CERTIFICATE_RECORD) {
+          for (const auto &prevCertName : CertificateRecord(record).getPrevCertificates()) {
+              if (m_backend.getRecord(prevCertName)) {
+                  std::cout << "- Preceding Cert Record " << prevCertName << " already in the ledger" << std::endl;
+              } else {
+                  allPrecedingRecordsInLedger = false;
+                  fetchRecord(prevCertName);
+              }
+          }
+      }
 
       if (!allPrecedingRecordsInLedger) {
           std::cout << "- Waiting for record to be added" << std::endl;
@@ -532,6 +562,17 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
             readyToAdd = false;
             break;
         }
+    }
+    if (record.getType() == CERTIFICATE_RECORD) {
+        for (const auto &prevCertName : CertificateRecord(record).getPrevCertificates()) {
+            if (!m_backend.getRecord(prevCertName)) {
+                readyToAdd = false;
+            }
+        }
+    }
+    if (!badRecord && readyToAdd && !m_certList.verifySignature(*record.m_data)){
+        std::cout << "-- Bad Signature." << std::endl;
+        badRecord = true;
     }
     if (!badRecord && readyToAdd) {
         std::cout << "- Good record. Will add record in to the ledger" << std::endl;
@@ -640,6 +681,7 @@ void LedgerImpl::onRecordAccepted(const Record &record){
     if (record.getType() == RecordType::CERTIFICATE_RECORD) {
         try {
             auto certRecord = CertificateRecord(record);
+            m_certList.setLastCertRecord(certRecord.getRecordName());
             for (const auto& cert: certRecord.getCertificates()) {
                 m_certList.insert(cert);
             }

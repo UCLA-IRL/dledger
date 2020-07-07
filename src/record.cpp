@@ -183,8 +183,13 @@ CertificateRecord::CertificateRecord(Record record)
     if (this->getType() != RecordType::CERTIFICATE_RECORD) {
         BOOST_THROW_EXCEPTION(std::runtime_error("incorrect record type"));
     }
+
     for (const Block& block : this->getRecordItems()) {
-        m_cert_list.emplace_back(block);
+        if (block.type() == tlv::KeyLocator) {
+            m_prev_cert.emplace_back(KeyLocator(block).getName());
+        } else {
+            m_cert_list.emplace_back(block);
+        }
     }
 }
 
@@ -199,6 +204,17 @@ const std::list<security::v2::Certificate> &
 CertificateRecord::getCertificates() const
 {
     return m_cert_list;
+}
+
+void
+CertificateRecord::addPrevCertPointer(const Name& recordName){
+    m_prev_cert.emplace_back(recordName);
+    addRecordItem(KeyLocator(recordName).wireEncode());
+}
+
+const std::list<Name> &
+CertificateRecord::getPrevCertificates() const{
+    return m_prev_cert;
 }
 
 RevocationRecord::RevocationRecord(const std::string &identifer):

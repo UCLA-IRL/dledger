@@ -168,6 +168,8 @@ private:
    * /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
    */
   std::string m_uniqueIdentifier;
+
+protected:
   /**
    * The list of pointers to preceding records.
    */
@@ -204,8 +206,15 @@ public:
   const std::list<security::v2::Certificate> &
   getCertificates() const;
 
+  void
+  addPrevCertPointer(const Name& recordName);
+
+  const std::list<Name> &
+  getPrevCertificates() const;
+
 private:
   std::list<security::v2::Certificate> m_cert_list;
+  std::list<Name> m_prev_cert;
 };
 
 class RevocationRecord : public Record {

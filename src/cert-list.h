@@ -24,12 +24,16 @@ namespace dledger {
         void revoke(const Name& certificateName);
         bool authorizedToGenerate() const;
 
+        void setLastCertRecord(const Name& certName);
+        const Name& getLastCertRecord() const;
+
         Name getCertificateNameIdentity(const Name& certificateName) const;
 
     private:
         const Config& m_config;
         std::map<Name, std::list<security::v2::Certificate>> m_peerCertificates; // first: name of the peer, second: certificate
         std::unordered_set<Name> m_revokedCertificates;
+        Name m_lastCertRecord;
     };
 }
 
