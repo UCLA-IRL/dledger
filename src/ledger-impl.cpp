@@ -108,6 +108,12 @@ LedgerImpl::createRecord(Record& record)
       return ReturnCode::signingError("No Valid Certificate");
   }
 
+  if (record.getType() == CERTIFICATE_RECORD) {
+      CertificateRecord certRecord(record);
+      certRecord.addPrevCertPointer(m_certList.getLastCertRecord());
+      record = certRecord;
+  }
+
   std::vector<std::pair<Name, int>> recordList;
   for (const auto &item : m_tailRecords) {
       if (item.second.refSet.size() <= m_config.appendWeight &&
@@ -510,6 +516,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       }
       if (record.getType() == CERTIFICATE_RECORD) {
           for (const auto &prevCertName : CertificateRecord(record).getPrevCertificates()) {
+              if (prevCertName.empty()) continue;
               if (m_backend.getRecord(prevCertName)) {
                   std::cout << "- Preceding Cert Record " << prevCertName << " already in the ledger" << std::endl;
               } else {
@@ -565,7 +572,7 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
     }
     if (record.getType() == CERTIFICATE_RECORD) {
         for (const auto &prevCertName : CertificateRecord(record).getPrevCertificates()) {
-            if (!m_backend.getRecord(prevCertName)) {
+            if (!prevCertName.empty() && !m_backend.getRecord(prevCertName)) {
                 readyToAdd = false;
             }
         }
