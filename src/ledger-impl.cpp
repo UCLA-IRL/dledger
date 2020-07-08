@@ -196,7 +196,7 @@ std::list<Name>
 LedgerImpl::listRecord(const std::string& prefix) const
 {
     auto list = m_backend.listRecord(Name(prefix));
-    list.remove_if([&](const auto& name) {return !(m_tailRecords.count(name) && !m_tailRecords.find(name)->second.referenceVerified);});
+    list.remove_if([&](const auto& name) {return m_tailRecords.count(name) && !m_tailRecords.find(name)->second.referenceVerified;});
     return list;
 }
 
