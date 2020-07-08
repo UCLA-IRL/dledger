@@ -107,6 +107,9 @@ LedgerImpl::createRecord(Record& record)
   if (!m_certList.authorizedToGenerate()) {
       return ReturnCode::signingError("No Valid Certificate");
   }
+  if (time::system_clock::now() - m_rateCheck[readString(m_config.peerPrefix.get(-1))] < RECORD_PRODUCTION_INTERVAL_RATE_LIMIT) {
+      return ReturnCode::timingError("record generation too fast");
+  }
 
   if (record.getType() == CERTIFICATE_RECORD) {
       std::cout << "-- Certificate record: Add previous cert record: " << m_certList.getLastCertRecord() << std::endl;
@@ -533,6 +536,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
 
   } catch (const std::exception& e) {
       std::cout << "- The Data format is not proper for DLedger record because " << e.what() << std::endl;
+      std::cout << "--" << data.getFullName() << std::endl;
       m_badRecords.insert(data.getFullName());
       return;
   }
@@ -705,7 +709,6 @@ void LedgerImpl::onRecordAccepted(const Record &record){
     } else if (record.getType() == RecordType::REVOCATION_RECORD) {
         try {
             auto revokeRecord = RevocationRecord(record);
-            bool isAnchor = readString(m_config.trustAnchorCert->getIdentity().get(-1)) == revokeRecord.getProducerID();
             for (const auto& certName: revokeRecord.getRevokedCertificates()) {
                 m_certList.revoke(certName);
             }

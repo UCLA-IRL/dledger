@@ -13,6 +13,7 @@ enum ErrorCode {
     EC_NoTailingRecord = 1,
     EC_NotEnoughTailingRecord = 2,
     EC_SigningError = 3,
+    EC_TimingError = 4
   };
 
 class ReturnCode {
@@ -28,8 +29,10 @@ public:
   static ReturnCode notEnoughTailingRecord() { return ReturnCode(EC_NotEnoughTailingRecord, "Not Enough Tailing Records"); }
 
   static ReturnCode signingError(const std::string& reason) { return ReturnCode(EC_SigningError, reason); }
+  static ReturnCode timingError(const std::string& reason) { return ReturnCode(EC_TimingError, reason); }
 
-  bool success() { return m_errorCode == EC_OK; }
+
+    bool success() { return m_errorCode == EC_OK; }
   std::string what() { return m_status; }
 
 private:

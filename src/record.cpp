@@ -186,7 +186,11 @@ CertificateRecord::CertificateRecord(Record record)
 
     for (const Block& block : this->getRecordItems()) {
         if (block.type() == tlv::KeyLocator) {
-            m_prev_cert.emplace_back(KeyLocator(block).getName());
+            Name recordName = KeyLocator(block).getName();
+            if (!recordName.empty()) {
+                RecordName r(recordName); // to check record name format
+            }
+            m_prev_cert.emplace_back(recordName);
         } else {
             m_cert_list.emplace_back(block);
         }
