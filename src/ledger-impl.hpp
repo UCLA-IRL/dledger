@@ -14,6 +14,7 @@
 #include <ndn-cxx/util/io.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
 #include <stack>
+#include <random>
 
 
 using namespace ndn;
@@ -123,6 +124,8 @@ private:
   // Siqi's temp member variable
   std::set<Name> m_badRecords;
   scheduler::EventId m_syncEventID;
+  scheduler::EventId m_replySyncEventID;
+  std::mt19937_64 m_randomEngine{std::random_device{}()};
 };
 
 // class Ledger
