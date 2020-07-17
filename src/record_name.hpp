@@ -16,6 +16,7 @@ class RecordName: public Name {
 public:
     // record Name: /<application-common-prefix>/<producer-name>/<record-type>/<record-name>/<timestamp>
     RecordName(const Name& name);
+    RecordName(const Name& peerPrefix, RecordType type, const std::string &identifier, time::system_clock::TimePoint time=time::system_clock::now());
     std::string getApplicationCommonPrefix() const;
     std::string getProducerID() const;
     RecordType getRecordType() const;

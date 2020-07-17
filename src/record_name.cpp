@@ -15,6 +15,14 @@ namespace dledger {
             BOOST_THROW_EXCEPTION(std::runtime_error("record name invalid type"));
     }
 
+    RecordName::RecordName(const Name& peerPrefix, RecordType type, const std::string &identifier,
+            time::system_clock::TimePoint time):
+            Name(peerPrefix) {
+        this->append(recordTypeToString(type));
+        append(identifier);
+        appendTimestamp(time);
+    }
+
     std::string RecordName::getApplicationCommonPrefix() const {
         int numSuffix = hasImplicitDigest() ? 5 : 4;
         return this->getSubName(0, size() - numSuffix).toUri();
@@ -53,17 +61,12 @@ namespace dledger {
 
     RecordName RecordName::generateRecordName(const Config& config, const Record& record) {
         if (record.getType() == GENESIS_RECORD) {
-            Name recordName(config.peerPrefix.getSubName(0, config.peerPrefix.size() - 1));
-            recordName.append("genesis")
-            .append(recordTypeToString(record.getType()))
-            .append(record.getUniqueIdentifier());
-            recordName.appendTimestamp(time::system_clock::time_point());
+            Name genesisPrefix(config.peerPrefix.getSubName(0, config.peerPrefix.size() - 1));
+            genesisPrefix.append("genesis");
+            RecordName recordName(genesisPrefix, record.getType(), record.getUniqueIdentifier(), time::system_clock::time_point());
             return recordName;
         }
-        Name recordName(config.peerPrefix);
-        recordName.append(recordTypeToString(record.getType()))
-        .append(record.getUniqueIdentifier())
-        .appendTimestamp();
+        RecordName recordName(config.peerPrefix, record.getType(), record.getUniqueIdentifier());
         return recordName;
     }
 

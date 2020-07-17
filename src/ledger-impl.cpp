@@ -126,8 +126,7 @@ LedgerImpl::createRecord(Record& record)
   }
 
   // randomly shuffle the tailing record list
-  std::mt19937_64 eng{std::random_device{}()};
-  std::shuffle(std::begin(recordList), std::end(recordList), eng);
+  std::shuffle(std::begin(recordList), std::end(recordList), m_randomEngine);
 
   // fulfill the record content with preceding record IDs
   // removal of preceding record is done by addToTailingRecord() at the end
@@ -402,6 +401,9 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
       return;
   }
 
+  //cancel previous reply
+  if (m_replySyncEventID) m_replySyncEventID.cancel();
+
   const auto& appParam = interest.getApplicationParameters();
   appParam.parse();
   std::cout << "- Received Tailing Record Names: \n";
@@ -436,16 +438,15 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
     else {
         std::cout << "--- Fetch unseen tailing record \n";
         //fetch record
-        std::mt19937_64 eng{std::random_device{}()};
-        std::uniform_int_distribution<> dist{10, 100};
-        m_scheduler.schedule(time::milliseconds(dist(eng)), [&, recordName] {
-            fetchRecord(recordName);
-        });
+        fetchRecord(recordName);
     }
   }
   if (shouldSendSync) {
       std::cout << "[LedgerImpl::onLedgerSyncRequest] send Sync interest so others can fetch new record\n";
-      sendSyncInterest();
+      std::uniform_int_distribution<> dist{10, 200};
+      m_replySyncEventID = m_scheduler.schedule(time::milliseconds(dist(m_randomEngine)), [&] {
+          sendSyncInterest();
+      });
   }
 }
 
