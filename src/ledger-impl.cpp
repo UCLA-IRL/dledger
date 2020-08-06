@@ -353,8 +353,8 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
     return true;
 }
 
-bool LedgerImpl::checkReferenceValidityOfRecord(const Data& data) {
-    std::cout << "[LedgerImpl::checkReferenceValidityOfRecord] Check the reference validity of the record" << std::endl;
+bool LedgerImpl::checkEndorseValidityOfRecord(const Data& data) {
+    std::cout << "[LedgerImpl::checkEndorseValidityOfRecord] Check the reference validity of the record" << std::endl;
     Record dataRecord;
     try {
         // format check
@@ -364,7 +364,13 @@ bool LedgerImpl::checkReferenceValidityOfRecord(const Data& data) {
         return false;
     }
 
-    std::cout << "- Step 7: Check Contribution Policy" << std::endl;
+    std::cout << "- Step 7: Check Revocation" << std::endl;
+    if (!m_certList.verifyEndorseSignature(data)) {
+        std::cout << "-- certificate revoked" << std::endl;
+        return false;
+    }
+
+    std::cout << "- Step 8: Check Contribution Policy" << std::endl;
     for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
         if (m_tailRecords.count(precedingRecordName) != 0) {
             std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].refSet.size() << '\n';
@@ -587,13 +593,9 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
             }
         }
     }
-    if (!badRecord && readyToAdd && !m_certList.verifySignature(*record.m_data)){
-        std::cout << "-- Bad Signature." << std::endl;
-        badRecord = true;
-    }
     if (!badRecord && readyToAdd) {
         std::cout << "- Good record. Will add record in to the ledger" << std::endl;
-        addToTailingRecord(record, checkReferenceValidityOfRecord(*(record.m_data)));
+        addToTailingRecord(record, checkEndorseValidityOfRecord(*(record.m_data)));
         return true;
     }
     if (badRecord) {
@@ -670,7 +672,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     while (referenceNeedUpdate) {
         referenceNeedUpdate = false;
         for (auto &r : m_tailRecords) {
-            if (!r.second.referenceVerified && r.second.recordPolicyVerified) {
+            if (!r.second.referenceVerified && r.second.endorseVerified) {
                 bool referenceVerified = true;
                 Record currentRecord(m_backend.getRecord(r.first));
                 for (const auto &precedingRecord : currentRecord.getPointersFromHeader()) {

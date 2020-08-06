@@ -20,6 +20,7 @@ namespace dledger {
         CertList(const Config& config);
         void insert(const security::v2::Certificate& certificate);
         bool verifySignature(const Data& data) const;
+        bool verifyEndorseSignature(const Data& data) const;
         bool verifySignature(const Interest& interest) const;
         void revoke(const Name& certificateName);
 

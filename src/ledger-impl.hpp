@@ -54,7 +54,7 @@ private:
   bool
   checkSyntaxValidityOfRecord(const Data& data);
   bool
-  checkReferenceValidityOfRecord(const Data& data);
+  checkEndorseValidityOfRecord(const Data& data);
 
   // Interest format: each <> is only one name component
   // /<multicast_prefix>/NOTIF/<Full Name of Record>
@@ -90,7 +90,7 @@ private:
   struct TailingRecordState{
       bool referenceVerified;
       std::set<std::string> refSet;
-      bool recordPolicyVerified;
+      bool endorseVerified;
   };
   ReturnCode sendSyncInterest();
   static void dumpList(const std::map<Name, TailingRecordState>& weight);

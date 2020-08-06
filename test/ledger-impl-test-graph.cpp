@@ -63,7 +63,7 @@ main(int argc, char** argv)
   }
 
   shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
-  ledger->setOnRecordAppAccepted([&dot_log, &ledger](const Record& r){
+    ledger->setOnRecordAppAccepted([&dot_log, &ledger](const Record &r) {
         dot_log << getNodeDigest(r) << " " << getNodeAttribute(r) << ";" << std::endl;
         for (const auto &ptr: r.getPointersFromHeader()) {
             auto ancestor = ledger->getRecord(ptr.toUri());
@@ -73,13 +73,13 @@ main(int argc, char** argv)
 
         if (r.getType() == CERTIFICATE_RECORD) {
             CertificateRecord certRecord(r);
-            for (const auto& ptr: certRecord.getPrevCertificates()) {
+            for (const auto &ptr: certRecord.getPrevCertificates()) {
                 auto ancestor = ledger->getRecord(ptr.toUri());
                 if (ancestor.has_value())
                     dot_log << getNodeDigest(r) << " -> " << getNodeDigest(*ancestor) << "[color=blue];" << std::endl;
             }
         }
-  });
+    });
 
   Scheduler scheduler(ioService);
   periodicAddRecord(ledger, scheduler);
