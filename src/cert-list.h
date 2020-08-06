@@ -22,10 +22,11 @@ namespace dledger {
         bool verifySignature(const Data& data) const;
         bool verifySignature(const Interest& interest) const;
         void revoke(const Name& certificateName);
+
         bool authorizedToGenerate() const;
 
-        void setLastCertRecord(const Name& certName);
-        const Name& getLastCertRecord() const;
+        void setLastCertRecords(const Name& certName, const std::list<Name>& referencedCerts);
+        const std::list<Name>& getLastCertRecords() const;
 
         Name getCertificateNameIdentity(const Name& certificateName) const;
 
@@ -33,7 +34,7 @@ namespace dledger {
         const Config& m_config;
         std::map<Name, std::list<security::v2::Certificate>> m_peerCertificates; // first: name of the peer, second: certificate
         std::unordered_set<Name> m_revokedCertificates;
-        Name m_lastCertRecord;
+        std::list<Name> m_lastCertRecord;
     };
 }
 

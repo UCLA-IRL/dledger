@@ -57,11 +57,14 @@ bool dledger::CertList::authorizedToGenerate() const {
     return !iterator->second.empty();
 }
 
-void dledger::CertList::setLastCertRecord(const Name& certName) {
+void dledger::CertList::setLastCertRecords(const Name& certName, const std::list<Name>& referencedCerts) {
     std::cout << "Register cert record "<< certName << std::endl;
-    m_lastCertRecord = certName;
+    m_lastCertRecord.push_back(certName);
+    for (const auto &c : referencedCerts) {
+        m_lastCertRecord.remove(c);
+    }
 }
 
-const Name& dledger::CertList::getLastCertRecord() const{
+const std::list<Name>& dledger::CertList::getLastCertRecords() const{
     return m_lastCertRecord;
 }
