@@ -343,12 +343,6 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
         std::cout << "-- Not a certificate/revocation record" << std::endl;
     }
 
-    std::cout << "- Step 6: Check App Logic" << std::endl;
-    if (m_onRecordAppCheck != nullptr && !m_onRecordAppCheck(data)) {
-        std::cout << "-- App Logic check failed" << std::endl;
-        return false;
-    }
-
     std::cout << "- All Syntax check Steps finished. Good Record" << std::endl;
     return true;
 }
@@ -364,13 +358,13 @@ bool LedgerImpl::checkEndorseValidityOfRecord(const Data& data) {
         return false;
     }
 
-    std::cout << "- Step 7: Check Revocation" << std::endl;
+    std::cout << "- Step 6: Check Revocation" << std::endl;
     if (!m_certList.verifyEndorseSignature(data)) {
         std::cout << "-- certificate revoked" << std::endl;
         return false;
     }
 
-    std::cout << "- Step 8: Check Contribution Policy" << std::endl;
+    std::cout << "- Step 7: Check Contribution Policy" << std::endl;
     for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
         if (m_tailRecords.count(precedingRecordName) != 0) {
             std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].refSet.size() << '\n';
@@ -386,6 +380,12 @@ bool LedgerImpl::checkEndorseValidityOfRecord(const Data& data) {
             }
             return false;
         }
+    }
+
+    std::cout << "- Step 8: Check App Logic" << std::endl;
+    if (m_onRecordAppCheck != nullptr && !m_onRecordAppCheck(data)) {
+        std::cout << "-- App Logic check failed" << std::endl;
+        return false;
     }
 
     std::cout << "- All Reference Check Steps finished. Good Record" << std::endl;
