@@ -231,7 +231,7 @@ ReturnCode LedgerImpl::sendSyncInterest() {
         appParam.push_back(KeyLocator(certName).wireEncode());
     }
     for (const auto &item : m_tailRecords) {
-        if (item.second.refSet.empty())
+        if (item.second.referenceVerified && item.second.refSet.empty())
             appParam.push_back(item.first.wireEncode());
     }
     appParam.parse();
@@ -633,7 +633,11 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
 
     //update weight of the system
     std::stack<Name> stack;
-    stack.push(record.getRecordName());
+
+    //only count the weight if the record is valid for all policies
+    if (verified) {
+        stack.push(record.getRecordName());
+    }
     while (!stack.empty()) {
         RecordName currentRecordName(stack.top());
         stack.pop();
