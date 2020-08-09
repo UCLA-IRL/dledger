@@ -10,6 +10,13 @@
 
 using namespace dledger;
 
+std::list<std::string> startingPeerPath({
+                                                "./test-certs/test-a.cert",
+                                                "./test-certs/test-b.cert",
+                                                "./test-certs/test-c.cert",
+                                                "./test-certs/test-d.cert"
+                                        });
+
 void periodicAddRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler) {
     Record record(RecordType::GENERIC_RECORD, std::to_string(std::rand()));
     record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
@@ -54,7 +61,7 @@ main(int argc, char** argv)
 
   try {
     config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName,
-            std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName));
+            std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName), startingPeerPath);
     mkdir("/tmp/dledger-db/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   }
   catch(const std::exception& e) {

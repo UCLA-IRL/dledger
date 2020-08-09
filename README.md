@@ -25,12 +25,15 @@ nfdc strategy set /dledger-multicast /localhost/nfd/strategy/multicast
 
 # generate keys and certificates
 ndnsec key-gen /dledger/test-anchor
-ndnsec-sign-req /dledger/test-anchor > dledger-anchor.cert 
-ndnsec key-gen /dledger/test-a
-ndnsec key-gen /dledger/test-b
-ndnsec key-gen /dledger/test-c
-ndnsec key-gen /dledger/test-d
-ndnsec key-gen /dledger/test-e
+ndnsec-sign-req /dledger/test-anchor | ndnsec cert-gen -s /dledger/test-anchor - > dledger-anchor.cert 
+
+mkdir test-certs
+ndnsec key-gen /dledger/test-a | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-a.cert
+ndnsec key-gen /dledger/test-b | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-b.cert
+ndnsec key-gen /dledger/test-c | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-c.cert
+ndnsec key-gen /dledger/test-d | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-d.cert
+ndnsec key-gen /dledger/test-e | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-e.cert
+
 
 # run each of the following as a peer
 ./build/ledger-impl-test test-a

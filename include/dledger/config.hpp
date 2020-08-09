@@ -4,6 +4,7 @@
 #include <iostream>
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
+#include "cert-manager.hpp"
 
 using namespace ndn;
 namespace dledger {
@@ -13,14 +14,14 @@ class Config
 public:
   static shared_ptr<Config> DefaultConfig();
   static shared_ptr<Config> CustomizedConfig(const std::string& multicastPrefix, const std::string& peerPrefix,
-          const std::string& anchorCertPath, const std::string& databasePath);
+          const std::string& anchorCertPath, const std::string& databasePath, const std::list<std::string> &startingPeerPaths);
 
   /**
    * Construct a Config instance used for DLedger initialization.
    * @p multicastPrefix, input, the distributed ledger system's multicast prefix.
    * @p peerPrefix, input, the unique prefix of the peer.
    */
-  Config(const std::string& multicastPrefix, const std::string& peerPrefix);
+  Config(const std::string& multicastPrefix, const std::string& peerPrefix, shared_ptr<CertificateManager> certificateManager_);
 
 public:
   /**
@@ -48,14 +49,13 @@ public:
    */
   Name peerPrefix;
   /**
-   * The trust anchor certificate of the whole distributed ledger system.
-   * The identity should be another peer.
-   */
-  std::shared_ptr<security::v2::Certificate> trustAnchorCert;
-  /**
    * The path to the Database;
    */
    std::string databasePath;
+   /**
+    * The Certificate manager
+    */
+    shared_ptr<CertificateManager> certificateManager;
 };
 
 } // namespace dledger

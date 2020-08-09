@@ -11,11 +11,14 @@
 
 using namespace dledger;
 
+std::list<std::string> startingPeerPath({
+    "./test-certs/test-a.cert",
+    "./test-certs/test-b.cert",
+    "./test-certs/test-c.cert",
+    "./test-certs/test-d.cert"
+});
+
 std::string peerList[] = {
-        "/dledger/test-a",
-        "/dledger/test-b",
-        "/dledger/test-c",
-        "/dledger/test-d",
         "/dledger/test-e",
 };
 
@@ -76,7 +79,8 @@ main(int argc, char** argv)
     std::shared_ptr<Config> config = nullptr;
     try {
         config = Config::CustomizedConfig("/dledger-multicast", anchorName,
-                                          std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/test-anchor"));
+                                          std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/test-anchor"),
+                                          startingPeerPath);
         mkdir("/tmp/dledger-db/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     }
     catch(const std::exception& e) {
@@ -85,11 +89,6 @@ main(int argc, char** argv)
     }
 
     shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
-
-    if (!config->trustAnchorCert->isValid()) {
-        std::cout << "Anchor certificate expired. " << std::endl;
-        return 1;
-    }
 
     auto recordName = addCertificateRecord(keychain, ledger);
     Scheduler scheduler(ioService);

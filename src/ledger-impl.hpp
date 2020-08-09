@@ -5,7 +5,6 @@
 #include "dledger/record.hpp"
 #include "dledger/config.hpp"
 #include "backend.hpp"
-#include "cert-list.h"
 #include <ndn-cxx/security/v2/certificate.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
 #include <ndn-cxx/face.hpp>
@@ -106,6 +105,7 @@ private:
    * handles the information when a record is accepted.
    */
   void onRecordConfirmed(const Record &record);
+
 private:
   Config m_config;
   Face& m_network;
@@ -114,7 +114,6 @@ private:
   security::KeyChain& m_keychain;
 
   std::map<Name, TailingRecordState> m_tailRecords;
-  CertList m_certList;
 
   std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
 
@@ -126,6 +125,7 @@ private:
   scheduler::EventId m_syncEventID;
   scheduler::EventId m_replySyncEventID;
   std::mt19937_64 m_randomEngine{std::random_device{}()};
+  std::list<Name> m_lastCertRecords; // for certificate chains
 };
 
 // class Ledger
