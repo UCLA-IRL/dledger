@@ -629,7 +629,6 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     //add record to tailing record
     m_tailRecords[record.getRecordName()] = TailingRecordState{refVerified, std::set<std::string>(), verified};
     m_backend.putRecord(record.m_data);
-    if (refVerified) onRecordAccepted(record);
 
     //update weight of the system
     std::stack<Name> stack;
@@ -662,8 +661,8 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
             if (!it->second.referenceVerified) {
                 it->second.referenceVerified = true;
                 referenceNeedUpdate = true;
-                onRecordAccepted(m_backend.getRecord(it->first));
             }
+            onRecordConfirmed(m_backend.getRecord(it->first));
         }
         if (it->second.refSet.size() >= removeWeight) {
             it = m_tailRecords.erase(it);
@@ -690,7 +689,6 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
                 if (referenceVerified) {
                     r.second.referenceVerified = referenceVerified;
                     referenceNeedUpdate = true;
-                    onRecordAccepted(currentRecord);
                 }
             }
         }
@@ -699,8 +697,8 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     dumpList(m_tailRecords);
 }
 
-void LedgerImpl::onRecordAccepted(const Record &record){
-    std::cout << "- [LedgerImpl::onRecordAccepted] accept record" << std::endl;
+void LedgerImpl::onRecordConfirmed(const Record &record){
+    std::cout << "- [LedgerImpl::onRecordConfirmed] accept record" << std::endl;
 
     //register current time
     if (m_rateCheck[record.getProducerID()] < record.getGenerationTimestamp())
@@ -729,8 +727,8 @@ void LedgerImpl::onRecordAccepted(const Record &record){
         }
     }
 
-    if (m_onRecordAppAccepted != nullptr) {
-        m_onRecordAppAccepted(record);
+    if (m_onRecordAppConfirmed != nullptr) {
+        m_onRecordAppConfirmed(record);
     }
 }
 

@@ -105,7 +105,7 @@ private:
   /**
    * handles the information when a record is accepted.
    */
-  void onRecordAccepted(const Record &record);
+  void onRecordConfirmed(const Record &record);
 private:
   Config m_config;
   Face& m_network;

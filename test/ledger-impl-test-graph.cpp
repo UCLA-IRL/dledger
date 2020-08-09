@@ -63,7 +63,7 @@ main(int argc, char** argv)
   }
 
   shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
-    ledger->setOnRecordAppAccepted([&dot_log, &ledger](const Record &r) {
+    ledger->setOnRecordAppConfirmed([&dot_log, &ledger](const Record &r) {
         dot_log << getNodeDigest(r) << " " << getNodeAttribute(r) << ";" << std::endl;
         for (const auto &ptr: r.getPointersFromHeader()) {
             auto ancestor = ledger->getRecord(ptr.toUri());
