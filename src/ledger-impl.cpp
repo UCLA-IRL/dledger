@@ -602,6 +602,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
         Record currentRecord(m_backend.getRecord(currentRecordName));
         auto precedingRecordList = currentRecord.getPointersFromHeader();
         for (const auto &precedingRecord : precedingRecordList) {
+            if (RecordName(precedingRecord).getProducerID() == record.getProducerID()) continue;
             if (m_tailRecords.count(precedingRecord) != 0 &&
                 m_tailRecords[precedingRecord].refSet.insert(record.getProducerID()).second) {
                 stack.push(precedingRecord);
