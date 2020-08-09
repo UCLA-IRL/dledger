@@ -589,6 +589,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
 
     //update weight of the system
     std::stack<Name> stack;
+    std::set<Name> updatedRecords;
 
     //only count the weight if the record is valid for all policies
     if (verified) {
@@ -604,6 +605,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
             if (m_tailRecords.count(precedingRecord) != 0 &&
                 m_tailRecords[precedingRecord].refSet.insert(record.getProducerID()).second) {
                 stack.push(precedingRecord);
+                updatedRecords.insert(precedingRecord);
                 std::cout << record.getProducerID() << " confirms " << precedingRecord.toUri() << std::endl;
             }
         }
@@ -612,19 +614,18 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     //remove deep records
     int removeWeight = max(m_config.contributionWeight + 1, m_config.confirmWeight);
     bool referenceNeedUpdate = false;
-    for (auto it = m_tailRecords.begin(); it != m_tailRecords.end();) {
-        if (it->second.refSet.size() >= m_config.confirmWeight) {
-            std::cout << "confirmed " << it->first.toUri() << std::endl;
-            if (!it->second.referenceVerified) {
-                it->second.referenceVerified = true;
+    for (const auto & updatedRecord : updatedRecords) {
+        auto& tailingState = m_tailRecords[updatedRecord];
+        if (tailingState.refSet.size() == m_config.confirmWeight) {
+            std::cout << "confirmed " << updatedRecord.toUri() << std::endl;
+            if (!tailingState.referenceVerified) {
+                tailingState.referenceVerified = true;
                 referenceNeedUpdate = true;
             }
-            onRecordConfirmed(m_backend.getRecord(it->first));
+            onRecordConfirmed(m_backend.getRecord(updatedRecord));
         }
-        if (it->second.refSet.size() >= removeWeight) {
-            it = m_tailRecords.erase(it);
-        } else {
-            it++;
+        if (tailingState.refSet.size() >= removeWeight) {
+            m_tailRecords.erase(updatedRecord);
         }
     }
 
