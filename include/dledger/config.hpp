@@ -27,19 +27,44 @@ public:
   /**
    * The number of preceding records that referenced by a later record.
    */
-  int precedingRecordNum = 2;
+  size_t precedingRecordNum = 2;
   /**
    * The maximum weight of record that can be referenced.
    */
-  int appendWeight = 1;
+  size_t appendWeight = 1;
   /**
    * The maximum weight of record that can be allowed.
    */
-  int contributionWeight = 2;
+  size_t contributionWeight = 2;
   /**
    * The weight of record that can be confirmed and be appended without contribution policy.
    */
-  int confirmWeight = 2;
+  size_t confirmWeight = 2;
+
+  /**
+   * The number of genesis block for the DAG.
+   */
+  size_t numGenesisBlock = 10;
+
+  /**
+   * The maximum record production rate.
+   */
+  time::milliseconds recordProductionRateLimit = time::milliseconds(1000);
+
+  /**
+   * the maximum interval between two sync interests.
+   */
+  time::milliseconds syncInterval = time::milliseconds(5000);
+
+  /**
+   * The timeout for fetching ancestor records.
+   */
+  time::milliseconds ancestorFetchTimeout = time::milliseconds(10000);
+
+  /**
+   * The maximum clock skew allowed for other peer.
+   */
+  time::milliseconds clockSkewTolerance = time::milliseconds(60000);
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */

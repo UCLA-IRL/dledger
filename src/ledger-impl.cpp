@@ -13,11 +13,6 @@
 using namespace ndn;
 namespace dledger {
 
-const static size_t DEFAULT_GENESIS_BLOCKS = 10;
-const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds(1);
-const static time::seconds ANCESTOR_FETCH_TIMEOUT = time::seconds(10);
-const static time::seconds CLOCK_SKEW_TOLERANCE = time::seconds(120);
-
 int max(int a, int b) {
     return a > b ? a : b;
 }
@@ -64,7 +59,7 @@ LedgerImpl::LedgerImpl(const Config& config,
 
   //****STEP 2****
   // Make the genesis data
-  for (int i = 0; i < DEFAULT_GENESIS_BLOCKS; i++) {
+  for (int i = 0; i < m_config.numGenesisBlock; i++) {
     GenesisRecord genesisRecord((std::to_string(i)));
     RecordName recordName = RecordName::generateRecordName(config, genesisRecord);
     auto data = make_shared<Data>(recordName);
@@ -76,7 +71,7 @@ LedgerImpl::LedgerImpl(const Config& config,
     addToTailingRecord(genesisRecord, true);
   }
   std::cout << "STEP 2" << std::endl
-            << "- " << DEFAULT_GENESIS_BLOCKS << " genesis records have been added to the DLedger" << std::endl
+            << "- " << m_config.numGenesisBlock << " genesis records have been added to the DLedger" << std::endl
             << "DLedger Initialization Succeed\n\n";
 
   this->sendPeriodicSyncInterest();
@@ -97,7 +92,7 @@ LedgerImpl::createRecord(Record& record)
   if (!m_config.certificateManager->authorizedToGenerate()) {
       return ReturnCode::signingError("No Valid Certificate");
   }
-  if (time::system_clock::now() - m_rateCheck[readString(m_config.peerPrefix.get(-1))] < RECORD_PRODUCTION_INTERVAL_RATE_LIMIT) {
+  if (time::system_clock::now() - m_rateCheck[readString(m_config.peerPrefix.get(-1))] < m_config.recordProductionRateLimit) {
       return ReturnCode::timingError("record generation too fast");
   }
 
@@ -240,7 +235,7 @@ ReturnCode LedgerImpl::sendSyncInterest() {
 
     // schedule for the next SyncInterest Sending
     if (m_syncEventID) m_syncEventID.cancel();
-    m_syncEventID = m_scheduler.schedule(time::seconds(5), [this] { sendPeriodicSyncInterest(); });
+    m_syncEventID = m_scheduler.schedule(m_config.syncInterval, [this] { sendPeriodicSyncInterest(); });
     return ReturnCode::noError();
 }
 
@@ -268,14 +263,14 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
 
     std::cout << "- Step 3: Check rating limit" << std::endl;
     auto tp = dataRecord.getGenerationTimestamp();
-    if (tp > time::system_clock::now() + CLOCK_SKEW_TOLERANCE) {
+    if (tp > time::system_clock::now() + m_config.clockSkewTolerance) {
         std::cout << "-- record from too far in the future" << std::endl;
         return false;
     }
     if (m_rateCheck.find(producerID) == m_rateCheck.end()) {
         m_rateCheck[producerID] = tp;
     } else {
-        if ((time::abs(tp - m_rateCheck[producerID]) < RECORD_PRODUCTION_INTERVAL_RATE_LIMIT)) {
+        if ((time::abs(tp - m_rateCheck[producerID]) < m_config.recordProductionRateLimit)) {
             std::cout << "-- record generation too fast from the peer" << std::endl;
             return false;
         }
@@ -516,7 +511,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       for (auto it = m_syncStack.begin(); it != m_syncStack.end();) {
           if (checkRecordAncestor(it->first)) {
               it = m_syncStack.erase(it);
-          } else if(time::abs(time::system_clock::now() - it->second) > ANCESTOR_FETCH_TIMEOUT){
+          } else if(time::abs(time::system_clock::now() - it->second) > m_config.ancestorFetchTimeout){
               std::cout << "-- Timeout on fetching ancestor for " << it->first.getRecordName().toUri() << std::endl;
               it = m_syncStack.erase(it);
           } else {
