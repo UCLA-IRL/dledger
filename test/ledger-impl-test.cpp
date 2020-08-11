@@ -11,10 +11,11 @@
 using namespace dledger;
 
 std::list<std::string> startingPeerPath({
-                                                "./test-certs/test-a.cert",
-                                                "./test-certs/test-b.cert",
-                                                "./test-certs/test-c.cert",
-                                                "./test-certs/test-d.cert"
+                                                "./test-1a.cert",
+                                                "./test-1b.cert",
+                                                "./test-1c.cert",
+                                                "./test-1d.cert",
+                                                "./test-1e.cert"
                                         });
 
 std::shared_ptr<ndn::Data>
@@ -98,11 +99,11 @@ main(int argc, char** argv)
   shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
 
   Scheduler scheduler(ioService);
-  periodicAddRecord(ledger, scheduler);
+  scheduler.schedule(time::seconds(1), [ledger, &scheduler]{periodicAddRecord(ledger, scheduler);});
   if (idName == "test-2a") {
       scheduler.schedule(time::seconds(45),
                          [ledger, &keychain, idName] { addRevokeRecord(keychain, ledger, idName); });
-      scheduler.schedule(time::seconds(45) + time::milliseconds(800),
+      scheduler.schedule(time::seconds(45) + time::milliseconds(400),
                          [ledger, &keychain, idName] { addRevokeRecord(keychain, ledger, idName); });
   }
 

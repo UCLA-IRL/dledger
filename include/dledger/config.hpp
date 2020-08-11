@@ -31,7 +31,6 @@ public:
   /**
    * The maximum weight of record that can be referenced.
    */
-<<<<<<< HEAD
   int appendWeight = 2;
   /**
    * The maximum weight of record that can be allowed.
@@ -41,21 +40,11 @@ public:
    * The weight of record that can be confirmed and be appended without contribution policy.
    */
   int confirmWeight = 3;
-=======
-  size_t appendWeight = 1;
-  /**
-   * The maximum weight of record that can be allowed.
-   */
-  size_t contributionWeight = 2;
-  /**
-   * The weight of record that can be confirmed and be appended without contribution policy.
-   */
-  size_t confirmWeight = 2;
 
   /**
    * The number of genesis block for the DAG.
    */
-  size_t numGenesisBlock = 10;
+  size_t numGenesisBlock = 5;
 
   /**
    * The maximum record production rate.
@@ -76,7 +65,7 @@ public:
    * The maximum clock skew allowed for other peer.
    */
   time::milliseconds clockSkewTolerance = time::milliseconds(60000);
->>>>>>> master
+
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */

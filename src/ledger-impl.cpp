@@ -13,14 +13,6 @@
 using namespace ndn;
 namespace dledger {
 
-<<<<<<< HEAD
-const static size_t DEFAULT_GENESIS_BLOCKS = 5;
-const static time::seconds RECORD_PRODUCTION_INTERVAL_RATE_LIMIT = time::seconds(1);
-const static time::seconds ANCESTOR_FETCH_TIMEOUT = time::seconds(10);
-const static time::seconds CLOCK_SKEW_TOLERANCE = time::seconds(120);
-
-=======
->>>>>>> master
 int max(int a, int b) {
     return a > b ? a : b;
 }
@@ -555,12 +547,8 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
     }
     if (!badRecord && readyToAdd) {
         std::cout << "- Good record. Will add record in to the ledger" << std::endl;
-<<<<<<< HEAD
         std::cout << "-- " << record.getRecordName() << std::endl;
-        addToTailingRecord(record, checkReferenceValidityOfRecord(*(record.m_data)));
-=======
         addToTailingRecord(record, checkEndorseValidityOfRecord(*(record.m_data)));
->>>>>>> master
         return true;
     }
     if (badRecord) {

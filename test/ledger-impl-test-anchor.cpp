@@ -11,40 +11,29 @@
 #include <array>
 
 using namespace dledger;
-std::array<std::string, 5> peerList1 = {
-        "/dledger/test-1b",
-        "/dledger/test-1a",
-        "/dledger/test-1c",
-        "/dledger/test-1d",
-        "/dledger/test-1e"
-};
+
+std::list<std::string> startingPeerPath({
+                                                "./test-1b.cert",
+                                                "./test-1a.cert",
+                                                "./test-1c.cert",
+                                                "./test-1d.cert",
+                                                "./test-1e.cert"
+                                        });
 
 std::array<std::string, 5> peerList2 = {
-        "/dledger/test-2a",
         "/dledger/test-2b",
+        "/dledger/test-2a",
         "/dledger/test-2c",
         "/dledger/test-2d",
         "/dledger/test-2e"
 };
 
-<<<<<<< HEAD
 std::array<std::string, 5> peerList3 = {
         "/dledger/test-2a",
         "/dledger/test-1b",
         "/dledger/test-2a",
         "/dledger/test-1b",
         "/dledger/test-1a",
-=======
-std::list<std::string> startingPeerPath({
-    "./test-certs/test-a.cert",
-    "./test-certs/test-b.cert",
-    "./test-certs/test-c.cert",
-    "./test-certs/test-d.cert"
-});
-
-std::string peerList[] = {
-        "/dledger/test-e",
->>>>>>> master
 };
 
 std::string anchorName = "/dledger/test-anchor";
@@ -78,12 +67,17 @@ std::string addCertificateRecord(security::KeyChain& keychain, shared_ptr<Ledger
     return result.what();
 }
 
-std::string addRevokeRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger, std::string certRecordName) {
+std::string addRevokeRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger, std::string certRecordName, std::list<std::string> startPeerPaths) {
+    std::cout << "Making revoke record" << std::endl;
     RevocationRecord record(std::to_string(std::rand()));
     auto fetchResult = ledger->getRecord(certRecordName);
     assert(fetchResult.has_value());
     auto certRecord = CertificateRecord(*fetchResult);
     record.addCertificateNameItem(certRecord.getCertificates().begin()->getFullName());
+    std::cout << "Making revoke record 1/2" << std::endl;
+    auto startingPeerCert = io::load<security::v2::Certificate>(*startPeerPaths.begin());
+    record.addCertificateNameItem(startingPeerCert->getFullName());
+    std::cout << "Making revoke record 2/2" << std::endl;
 
     ReturnCode result = ledger->createRecord(record);
     if (!result.success()) {
@@ -115,22 +109,11 @@ main(int argc, char** argv)
 
     shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
 
-<<<<<<< HEAD
-    if (!config->trustAnchorCert->isValid()) {
-        std::cout << "Anchor certificate expired. " << std::endl;
-        return 1;
-    }
-
-    auto recordName = addCertificateRecord(keychain, ledger, peerList1);
-=======
-    auto recordName = addCertificateRecord(keychain, ledger);
->>>>>>> master
+    auto recordName = addCertificateRecord(keychain, ledger, peerList2);
     Scheduler scheduler(ioService);
-    scheduler.schedule(time::seconds(1),
-                       [ledger, &keychain]{addCertificateRecord(keychain, ledger, peerList2);});
     scheduler.schedule(time::seconds(45),
-            [ledger, &keychain, recordName]{addRevokeRecord(keychain, ledger, recordName);});
-    scheduler.schedule(time::seconds(150),
+            [ledger, &keychain, recordName]{addRevokeRecord(keychain, ledger, recordName, startingPeerPath);});
+    scheduler.schedule(time::seconds(130),
                        [ledger, &keychain]{addCertificateRecord(keychain, ledger, peerList3);});
 
     face.processEvents(time::seconds(180));
