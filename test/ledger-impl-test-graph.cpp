@@ -10,6 +10,13 @@
 
 using namespace dledger;
 
+std::list<std::string> startingPeerPath({
+                                                "./test-certs/test-a.cert",
+                                                "./test-certs/test-b.cert",
+                                                "./test-certs/test-c.cert",
+                                                "./test-certs/test-d.cert"
+                                        });
+
 void periodicAddRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler) {
     Record record(RecordType::GENERIC_RECORD, std::to_string(std::rand()));
     record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
@@ -56,7 +63,7 @@ main(int argc, char** argv)
 
   try {
     config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName,
-            std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName));
+            std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName), startingPeerPath);
     mkdir("/tmp/dledger-db/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   }
   catch(const std::exception& e) {
@@ -65,7 +72,7 @@ main(int argc, char** argv)
   }
 
   shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
-  ledger->setOnRecordAppAccepted([&dot_log, &ledger](const Record& r){
+    ledger->setOnRecordAppConfirmed([&dot_log, &ledger](const Record &r) {
         dot_log << getNodeDigest(r) << " " << getNodeAttribute(r) << ";" << std::endl;
         for (const auto &ptr: r.getPointersFromHeader()) {
             auto ancestor = ledger->getRecord(ptr.toUri());
@@ -75,13 +82,13 @@ main(int argc, char** argv)
 
         if (r.getType() == CERTIFICATE_RECORD) {
             CertificateRecord certRecord(r);
-            for (const auto& ptr: certRecord.getPrevCertificates()) {
+            for (const auto &ptr: certRecord.getPrevCertificates()) {
                 auto ancestor = ledger->getRecord(ptr.toUri());
                 if (ancestor.has_value())
                     dot_log << getNodeDigest(r) << " -> " << getNodeDigest(*ancestor) << "[color=blue, style=dashed];" << std::endl;
             }
         }
-  });
+    });
 
   Scheduler scheduler(ioService);
   periodicAddRecord(ledger, scheduler);

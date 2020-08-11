@@ -10,6 +10,13 @@
 
 using namespace dledger;
 
+std::list<std::string> startingPeerPath({
+                                                "./test-certs/test-a.cert",
+                                                "./test-certs/test-b.cert",
+                                                "./test-certs/test-c.cert",
+                                                "./test-certs/test-d.cert"
+                                        });
+
 std::shared_ptr<ndn::Data>
 makeData(const std::string& name, const std::string& content)
 {
@@ -79,7 +86,8 @@ main(int argc, char** argv)
   std::shared_ptr<Config> config = nullptr;
   try {
     config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName,
-            std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName));
+            std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName),
+                                      startingPeerPath);
     mkdir("/tmp/dledger-db/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   }
   catch(const std::exception& e) {

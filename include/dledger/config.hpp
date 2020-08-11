@@ -4,6 +4,7 @@
 #include <iostream>
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
+#include "cert-manager.hpp"
 
 using namespace ndn;
 namespace dledger {
@@ -13,23 +14,24 @@ class Config
 public:
   static shared_ptr<Config> DefaultConfig();
   static shared_ptr<Config> CustomizedConfig(const std::string& multicastPrefix, const std::string& peerPrefix,
-          const std::string& anchorCertPath, const std::string& databasePath);
+          const std::string& anchorCertPath, const std::string& databasePath, const std::list<std::string> &startingPeerPaths);
 
   /**
    * Construct a Config instance used for DLedger initialization.
    * @p multicastPrefix, input, the distributed ledger system's multicast prefix.
    * @p peerPrefix, input, the unique prefix of the peer.
    */
-  Config(const std::string& multicastPrefix, const std::string& peerPrefix);
+  Config(const std::string& multicastPrefix, const std::string& peerPrefix, shared_ptr<CertificateManager> certificateManager_);
 
 public:
   /**
    * The number of preceding records that referenced by a later record.
    */
-  int precedingRecordNum = 2;
+  size_t precedingRecordNum = 2;
   /**
    * The maximum weight of record that can be referenced.
    */
+<<<<<<< HEAD
   int appendWeight = 2;
   /**
    * The maximum weight of record that can be allowed.
@@ -39,6 +41,42 @@ public:
    * The weight of record that can be confirmed and be appended without contribution policy.
    */
   int confirmWeight = 3;
+=======
+  size_t appendWeight = 1;
+  /**
+   * The maximum weight of record that can be allowed.
+   */
+  size_t contributionWeight = 2;
+  /**
+   * The weight of record that can be confirmed and be appended without contribution policy.
+   */
+  size_t confirmWeight = 2;
+
+  /**
+   * The number of genesis block for the DAG.
+   */
+  size_t numGenesisBlock = 10;
+
+  /**
+   * The maximum record production rate.
+   */
+  time::milliseconds recordProductionRateLimit = time::milliseconds(1000);
+
+  /**
+   * the maximum interval between two sync interests.
+   */
+  time::milliseconds syncInterval = time::milliseconds(5000);
+
+  /**
+   * The timeout for fetching ancestor records.
+   */
+  time::milliseconds ancestorFetchTimeout = time::milliseconds(10000);
+
+  /**
+   * The maximum clock skew allowed for other peer.
+   */
+  time::milliseconds clockSkewTolerance = time::milliseconds(60000);
+>>>>>>> master
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */
@@ -48,14 +86,13 @@ public:
    */
   Name peerPrefix;
   /**
-   * The trust anchor certificate of the whole distributed ledger system.
-   * The identity should be another peer.
-   */
-  std::shared_ptr<security::v2::Certificate> trustAnchorCert;
-  /**
    * The path to the Database;
    */
    std::string databasePath;
+   /**
+    * The Certificate manager
+    */
+    shared_ptr<CertificateManager> certificateManager;
 };
 
 } // namespace dledger

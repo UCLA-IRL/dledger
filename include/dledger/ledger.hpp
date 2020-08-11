@@ -12,7 +12,7 @@ using namespace ndn;
 namespace dledger {
 
 typedef function<bool(const Data&)> OnRecordAppCheck;
-typedef function<void(const Record&)> OnRecordAppAccepted;
+typedef function<void(const Record&)> OnRecordAppConfirmed;
 
 class Ledger {
 public:
@@ -70,13 +70,13 @@ public:
     * @p onRecordAppCheck, input, a callback function invoked whenever there is a new record is accepted.
     */
   virtual void
-  setOnRecordAppAccepted(const OnRecordAppAccepted& onRecordAppAccepted) {
-      m_onRecordAppAccepted = onRecordAppAccepted;
+  setOnRecordAppConfirmed(const OnRecordAppConfirmed& onRecordAppConfirmed) {
+      m_onRecordAppConfirmed = onRecordAppConfirmed;
   }
 
 protected:
   OnRecordAppCheck m_onRecordAppCheck;
-  OnRecordAppAccepted m_onRecordAppAccepted;
+  OnRecordAppConfirmed m_onRecordAppConfirmed;
 };
 
 } // namespace dledger

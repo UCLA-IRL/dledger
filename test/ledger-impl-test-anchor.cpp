@@ -27,12 +27,24 @@ std::array<std::string, 5> peerList2 = {
         "/dledger/test-2e"
 };
 
+<<<<<<< HEAD
 std::array<std::string, 5> peerList3 = {
         "/dledger/test-2a",
         "/dledger/test-1b",
         "/dledger/test-2a",
         "/dledger/test-1b",
         "/dledger/test-1a",
+=======
+std::list<std::string> startingPeerPath({
+    "./test-certs/test-a.cert",
+    "./test-certs/test-b.cert",
+    "./test-certs/test-c.cert",
+    "./test-certs/test-d.cert"
+});
+
+std::string peerList[] = {
+        "/dledger/test-e",
+>>>>>>> master
 };
 
 std::string anchorName = "/dledger/test-anchor";
@@ -92,7 +104,8 @@ main(int argc, char** argv)
     std::shared_ptr<Config> config = nullptr;
     try {
         config = Config::CustomizedConfig("/dledger-multicast", anchorName,
-                                          std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/test-anchor"));
+                                          std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/test-anchor"),
+                                          startingPeerPath);
         mkdir("/tmp/dledger-db/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
     }
     catch(const std::exception& e) {
@@ -102,12 +115,16 @@ main(int argc, char** argv)
 
     shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
 
+<<<<<<< HEAD
     if (!config->trustAnchorCert->isValid()) {
         std::cout << "Anchor certificate expired. " << std::endl;
         return 1;
     }
 
     auto recordName = addCertificateRecord(keychain, ledger, peerList1);
+=======
+    auto recordName = addCertificateRecord(keychain, ledger);
+>>>>>>> master
     Scheduler scheduler(ioService);
     scheduler.schedule(time::seconds(1),
                        [ledger, &keychain]{addCertificateRecord(keychain, ledger, peerList2);});

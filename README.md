@@ -41,13 +41,21 @@ do
 done
 
 ndnsec key-gen /dledger/test-anchor
-ndnsec sign-req /dledger/test-anchor > dledger-anchor.cert
-# also copy the anchor to the other node
+ndnsec-sign-req /dledger/test-anchor | ndnsec cert-gen -s /dledger/test-anchor - > dledger-anchor.cert 
 
-# run each of the following on the machine to test
-# on node 1
-./test/test-scripts/node1-exec.sh
+mkdir test-certs
+ndnsec key-gen /dledger/test-a | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-a.cert
+ndnsec key-gen /dledger/test-b | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-b.cert
+ndnsec key-gen /dledger/test-c | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-c.cert
+ndnsec key-gen /dledger/test-d | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-d.cert
+ndnsec key-gen /dledger/test-e | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-e.cert
 
-# on node 2
-./test/test-scripts/node2-exec.sh
+
+# run each of the following as a peer
+./build/ledger-impl-test test-a
+./build/ledger-impl-test test-b
+./build/ledger-impl-test test-c
+./build/ledger-impl-test test-d
+./build/ledger-impl-test test-e
+./build/ledger-impl-test-anchor
 ```

@@ -25,9 +25,8 @@ set(DLEDGER_LIB_SOURCE_FILES
     ./src/config.cpp
     ./src/record_name.cpp
     ./src/record_name.hpp
-    ./src/cert-list.cpp
-    ./src/cert-list.h)
-
+        ./src/default-cert-manager.cpp
+    ./src/default-cert-manager.h)
 # include
 include_directories(${NDN_CXX_INCLUDE_DIRS})
 
