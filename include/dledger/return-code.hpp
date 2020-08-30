@@ -32,8 +32,9 @@ public:
   static ReturnCode timingError(const std::string& reason) { return ReturnCode(EC_TimingError, reason); }
 
 
-    bool success() { return m_errorCode == EC_OK; }
+  bool success() { return m_errorCode == EC_OK; }
   std::string what() { return m_status; }
+  uint16_t code() {return m_errorCode; }
 
 private:
   uint16_t m_errorCode;
