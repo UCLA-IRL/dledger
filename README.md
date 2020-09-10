@@ -21,18 +21,17 @@ To run the test files
 
 # configure NFD
 nfd-start
-nfdc strategy set /dledger-multicast /localhost/nfd/strategy/multicast
 
 # generate keys and certificates
-ndnsec key-gen /dledger/test-anchor
-ndnsec-sign-req /dledger/test-anchor | ndnsec cert-gen -s /dledger/test-anchor - > dledger-anchor.cert 
+ndnsec key-gen /ndn/dledger/test-anchor
+ndnsec-sign-req /ndn/dledger/test-anchor | ndnsec cert-gen -s /ndn/dledger/test-anchor - > dledger-anchor.cert 
 
 mkdir test-certs
-ndnsec key-gen /dledger/test-a | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-a.cert
-ndnsec key-gen /dledger/test-b | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-b.cert
-ndnsec key-gen /dledger/test-c | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-c.cert
-ndnsec key-gen /dledger/test-d | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-d.cert
-ndnsec key-gen /dledger/test-e | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-e.cert
+ndnsec key-gen /ndn/dledger/test-a | ndnsec cert-gen -s /ndn/dledger/test-anchor - > test-a.cert
+ndnsec key-gen /ndn/dledger/test-b | ndnsec cert-gen -s /ndn/dledger/test-anchor - > test-b.cert
+ndnsec key-gen /ndn/dledger/test-c | ndnsec cert-gen -s /ndn/dledger/test-anchor - > test-c.cert
+ndnsec key-gen /ndn/dledger/test-d | ndnsec cert-gen -s /ndn/dledger/test-anchor - > test-d.cert
+ndnsec key-gen /ndn/dledger/CA | ndnsec cert-gen -s /ndn/dledger/test-anchor - > CA.cert
 
 
 # run each of the following as a peer
@@ -40,6 +39,6 @@ ndnsec key-gen /dledger/test-e | ndnsec cert-gen -s /dledger/test-anchor - > tes
 ./build/ledger-impl-test test-b
 ./build/ledger-impl-test test-c
 ./build/ledger-impl-test test-d
-./build/ledger-impl-test test-e
 ./build/ledger-impl-test-anchor
+# also the ndncert server
 ```

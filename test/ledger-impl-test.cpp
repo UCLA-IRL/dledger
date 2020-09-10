@@ -11,10 +11,11 @@
 using namespace dledger;
 
 std::list<std::string> startingPeerPath({
-                                                "./test-certs/test-a.cert",
-                                                "./test-certs/test-b.cert",
-                                                "./test-certs/test-c.cert",
-                                                "./test-certs/test-d.cert"
+                                                "./test-a.cert",
+                                                "./test-b.cert",
+                                                "./test-c.cert",
+                                                "./test-d.cert",
+                                                "./CA.cert"
                                         });
 
 void periodicAddRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler) {
