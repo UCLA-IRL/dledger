@@ -8,3 +8,4 @@ dledger-peer
 build
 .idea/
 cmake-build-*/
+dfi-app/wasmtime-c-api

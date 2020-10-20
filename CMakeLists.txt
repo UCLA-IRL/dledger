@@ -60,6 +60,10 @@ if (BUILD_DIGRAPH)
     target_link_libraries(ledger-impl-test-graph PUBLIC dledger)
 endif (BUILD_DIGRAPH)
 
+if (BUILD_DFI)
+    add_subdirectory(dfi-app)
+endif(BUILD_DFI)
+
 include(GNUInstallDirs)
 install(TARGETS dledger
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
