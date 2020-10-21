@@ -24,9 +24,11 @@ makeData(const std::string& name, const std::string& content)
   using namespace std;
   auto data = make_shared<Data>(ndn::Name(name));
   data->setContent((const uint8_t*)content.c_str(), content.size());
-  ndn::SignatureSha256WithRsa fakeSignature;
-  fakeSignature.setValue(ndn::encoding::makeEmptyBlock(tlv::SignatureValue));
-  data->setSignature(fakeSignature);
+  SignatureInfo fakeSignature;
+  ConstBufferPtr empty = make_shared<Buffer>();
+  fakeSignature.setSignatureType(tlv::SignatureSha256WithRsa);
+  data->setSignatureInfo(fakeSignature);
+  data->setSignatureValue(empty);
   data->wireEncode();
   return data;
 }

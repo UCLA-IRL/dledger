@@ -31,7 +31,7 @@ std::string addCertificateRecord(security::KeyChain& keychain, shared_ptr<Ledger
     for (const std::string& peer : peerList) {
         const auto& identity = pib.getIdentity(peer);
         const auto& key = identity.getDefaultKey();
-        security::v2::Certificate newCert;
+        security::Certificate newCert;
 
         Name certName = key.getName();
         certName.append("test-anchor").append(std::to_string(std::rand()));

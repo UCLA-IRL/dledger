@@ -5,7 +5,7 @@
 #include "dledger/record.hpp"
 #include "dledger/config.hpp"
 #include "backend.hpp"
-#include <ndn-cxx/security/v2/certificate.hpp>
+#include <ndn-cxx/security/certificate.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
@@ -134,7 +134,7 @@ private:
 //   Ledger(const Name& multicastPrefix,
 //         const std::string& producerId, security::KeyChain& keychain,
 //         const std::string& myCertRecordId,
-//         security::v2::Certificate trustAnchorCert, Face& face,
+//         security::Certificate trustAnchorCert, Face& face,
 //         int approvalNum, int contributeWeight, int confirmWeight);
 
 //   void
@@ -204,9 +204,9 @@ private:
 //   // peer info
 //   Name m_mcPrefix;
 //   std::string m_producerId;
-//   security::v2::Certificate m_peerCert;
+//   security::Certificate m_peerCert;
 //   security::KeyChain& m_keyChain;
-//   security::v2::Certificate m_trustAnchorCert;
+//   security::Certificate m_trustAnchorCert;
 //   Face& m_face;
 
 //   int m_approvalNum; // the number of referred blocks

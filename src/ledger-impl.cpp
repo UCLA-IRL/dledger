@@ -704,7 +704,7 @@ Ledger::initLedger(const Config& config, security::KeyChain& keychain, Face& fac
 // Ledger::Ledger(const Name& multicastPrefix,
 //                const std::string& producerId, security::KeyChain& keychain,
 //                const std::string& myCertRecordId,
-//                security::v2::Certificate trustAnchorCert, Face& face,
+//                security::Certificate trustAnchorCert, Face& face,
 //                int approvalNum, int contributeWeight, int confirmWeight)
 //   : m_mcPrefix(multicastPrefix)
 //   , m_producerId(producerId)

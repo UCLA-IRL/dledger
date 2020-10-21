@@ -8,8 +8,8 @@
 #include "default-cert-manager.h"
 
 dledger::DefaultCertificateManager::DefaultCertificateManager(const Name &peerPrefix,
-                                                              shared_ptr<security::v2::Certificate> anchorCert,
-                                                              const std::list<security::v2::Certificate> &startingPeers)
+                                                              shared_ptr<security::Certificate> anchorCert,
+                                                              const std::list<security::Certificate> &startingPeers)
         :
         m_peerPrefix(peerPrefix), m_anchorCert(std::move(anchorCert)) {
     if (m_peerPrefix.size() != m_anchorCert->getIdentity().size()) {
@@ -61,7 +61,7 @@ bool dledger::DefaultCertificateManager::verifyRecordFormat(const dledger::Recor
             bool isAnchor = readString(m_anchorCert->getIdentity().get(-1)) == revokeRecord.getProducerID();
             for (const auto &certName: revokeRecord.getRevokedCertificates()) {
                 if (!certName.get(-1).isImplicitSha256Digest() ||
-                    !security::v2::Certificate::isValidName(certName.getPrefix(-1))) {
+                    !security::Certificate::isValidName(certName.getPrefix(-1))) {
                     std::cout << "-- invalid revoked certificate: " << certName << std::endl;
                     return false;
                 }

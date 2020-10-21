@@ -14,8 +14,8 @@ namespace dledger {
     public:
 
         DefaultCertificateManager(const Name &peerPrefix,
-                                  shared_ptr<security::v2::Certificate> anchorCert,
-                                  const std::list<security::v2::Certificate> &startingPeers);
+                                  shared_ptr<security::Certificate> anchorCert,
+                                  const std::list<security::Certificate> &startingPeers);
 
         bool verifySignature(const Data &data) const override;
 
@@ -33,8 +33,8 @@ namespace dledger {
         Name getCertificateNameIdentity(const Name &certificateName) const;
 
         Name m_peerPrefix;
-        std::shared_ptr<security::v2::Certificate> m_anchorCert;
-        std::map<Name, std::list<security::v2::Certificate>> m_peerCertificates; // first: name of the peer, second: certificate
+        std::shared_ptr<security::Certificate> m_anchorCert;
+        std::map<Name, std::list<security::Certificate>> m_peerCertificates; // first: name of the peer, second: certificate
         std::unordered_set<Name> m_revokedCertificates;
     };
 };

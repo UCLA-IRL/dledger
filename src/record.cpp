@@ -198,13 +198,13 @@ CertificateRecord::CertificateRecord(Record record)
 }
 
 void
-CertificateRecord::addCertificateItem(const security::v2::Certificate& certificate)
+CertificateRecord::addCertificateItem(const security::Certificate& certificate)
 {
     m_cert_list.emplace_back(certificate);
     addRecordItem(certificate.wireEncode());
 }
 
-const std::list<security::v2::Certificate> &
+const std::list<security::Certificate> &
 CertificateRecord::getCertificates() const
 {
     return m_cert_list;

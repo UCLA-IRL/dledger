@@ -6,7 +6,7 @@
 #define DLEDGER_CERT_MANAGER_HPP
 
 #include <ndn-cxx/name.hpp>
-#include <ndn-cxx/security/v2/certificate.hpp>
+#include <ndn-cxx/security/certificate.hpp>
 #include <ndn-cxx/interest.hpp>
 #include "record.hpp"
 

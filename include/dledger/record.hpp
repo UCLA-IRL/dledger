@@ -5,7 +5,7 @@
 #include <vector>
 #include <list>
 #include <ndn-cxx/data.hpp>
-#include <ndn-cxx/security/v2/certificate.hpp>
+#include <ndn-cxx/security/certificate.hpp>
 
 using namespace ndn;
 namespace dledger {
@@ -201,9 +201,9 @@ public:
   CertificateRecord(Record record);
 
   void
-  addCertificateItem(const security::v2::Certificate& certificate);
+  addCertificateItem(const security::Certificate& certificate);
 
-  const std::list<security::v2::Certificate> &
+  const std::list<security::Certificate> &
   getCertificates() const;
 
   void
@@ -213,7 +213,7 @@ public:
   getPrevCertificates() const;
 
 private:
-  std::list<security::v2::Certificate> m_cert_list;
+  std::list<security::Certificate> m_cert_list;
   std::list<Name> m_prev_cert;
 };
 
