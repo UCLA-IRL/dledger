@@ -24,6 +24,8 @@ if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/wasmtime-c-api)
     file(REMOVE ${CMAKE_CURRENT_SOURCE_DIR}/wasmtime-c-api.tar.xz)
 endif()
 
+set(CMAKE_CXX_STANDARD 14)
+
 include_directories(wasmtime-c-api/include)
 link_directories(wasmtime-c-api/lib)
 
