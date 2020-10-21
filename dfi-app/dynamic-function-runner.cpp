@@ -13,41 +13,33 @@ Note that on Windows and macOS the command will be similar, but you'll need
 to tweak the `-lpthread` and such annotations.
 */
 
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
 #include <wasm.h>
 #include <wasi.h>
 #include <wasmtime.h>
 
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#include <ndn-cxx/encoding/block.hpp>
+#include "dynamic-function-runner.h"
 
-static void exit_with_error(const char *message, wasmtime_error_t *error, wasm_trap_t *trap);
-
-int main() {
-    int ret = 0;
-    // Set up our context
-    wasm_engine_t *engine = wasm_engine_new();
+DynamicFunctionRunner::DynamicFunctionRunner(){
+    engine = wasm_engine_new();
+    store = wasm_store_new(engine);
     assert(engine != NULL);
-    wasm_store_t *store = wasm_store_new(engine);
     assert(store != NULL);
+}
+DynamicFunctionRunner::~DynamicFunctionRunner(){
+    wasm_store_delete(store);
+    wasm_engine_delete(engine);
+}
 
+void DynamicFunctionRunner::run_wasm_block(ndn::Block block) {
+
+    //copy code to wasm byte vec
     wasm_byte_vec_t wasm;
-    // Load our input file to parse it next
-    FILE* file = fopen("target/wasm32-wasi/debug/wasi.wasm", "rb");
-    if (!file) {
-        printf("> Error loading file!\n");
-        exit(1);
-    }
-    fseek(file, 0L, SEEK_END);
-    size_t file_size = ftell(file);
-    wasm_byte_vec_new_uninitialized(&wasm, file_size);
-    fseek(file, 0L, SEEK_SET);
-    if (fread(wasm.data, file_size, 1, file) != 1) {
-        printf("> Error loading module!\n");
-        exit(1);
-    }
-    fclose(file);
+    wasm_byte_vec_new_uninitialized(&wasm, block.value_size());
+    memcpy(wasm.data, block.value(), block.value_size());
 
     // Compile our modules
     wasm_module_t *module = NULL;
@@ -94,12 +86,9 @@ int main() {
     // Clean up after ourselves at this point
     wasm_name_delete(&empty);
     wasm_module_delete(module);
-    wasm_store_delete(store);
-    wasm_engine_delete(engine);
-    return 0;
 }
 
-static void exit_with_error(const char *message, wasmtime_error_t *error, wasm_trap_t *trap) {
+void DynamicFunctionRunner::exit_with_error(const char *message, wasmtime_error_t *error, wasm_trap_t *trap) {
     fprintf(stderr, "error: %s\n", message);
     wasm_byte_vec_t error_message;
     if (error != NULL) {

@@ -29,5 +29,6 @@ set(CMAKE_CXX_STANDARD 14)
 include_directories(wasmtime-c-api/include)
 link_directories(wasmtime-c-api/lib)
 
-add_executable(ledger-dfi ./wasi.c)
+add_executable(ledger-dfi dynamic-function-runner.cpp dynamic-function-runner.h)
+target_link_libraries(ledger-dfi PUBLIC ndn-cxx)
 target_link_libraries(ledger-dfi PUBLIC wasmtime)
