@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.14)
+
 # download wasm
 if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/wasmtime-c-api)
     if (APPLE)
@@ -26,5 +28,4 @@ include_directories(wasmtime-c-api/include)
 link_directories(wasmtime-c-api/lib)
 
 add_executable(ledger-dfi ./wasi.c)
-target_link_libraries(ledger-dfi PUBLIC dledger)
 target_link_libraries(ledger-dfi PUBLIC wasmtime)
