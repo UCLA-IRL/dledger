@@ -1,5 +1,5 @@
 # cmake version to be used
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.12)
 
 # project name
 project(dledger)
@@ -25,7 +25,7 @@ set(DLEDGER_LIB_SOURCE_FILES
     ./src/config.cpp
     ./src/record_name.cpp
     ./src/record_name.hpp
-        ./src/default-cert-manager.cpp
+    ./src/default-cert-manager.cpp
     ./src/default-cert-manager.h)
 # include
 include_directories(${NDN_CXX_INCLUDE_DIRS})

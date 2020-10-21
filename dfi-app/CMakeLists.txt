@@ -24,11 +24,13 @@ if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/wasmtime-c-api)
     file(REMOVE ${CMAKE_CURRENT_SOURCE_DIR}/wasmtime-c-api.tar.xz)
 endif()
 
-set(CMAKE_CXX_STANDARD 14)
+IF(APPLE)
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -D_GNU_SOURCE")
+endif()
 
 include_directories(wasmtime-c-api/include)
 link_directories(wasmtime-c-api/lib)
 
-add_executable(ledger-dfi dynamic-function-runner.cpp dynamic-function-runner.h)
+add_executable(ledger-dfi dynamic-function-runner.cpp dfi-ledger.cpp)
 target_link_libraries(ledger-dfi PUBLIC ndn-cxx)
 target_link_libraries(ledger-dfi PUBLIC wasmtime)
