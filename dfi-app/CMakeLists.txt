@@ -28,9 +28,20 @@ IF(APPLE)
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -D_GNU_SOURCE")
 endif()
 
+set(CMAKE_CXX_STANDARD 14)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(NDN_CXX REQUIRED libndn-cxx)
+
+# include
+include_directories(${NDN_CXX_INCLUDE_DIRS})
+
+# link
+link_directories(${NDN_CXX_LIBRARY_DIRS})
+
 include_directories(wasmtime-c-api/include)
 link_directories(wasmtime-c-api/lib)
 
 add_executable(ledger-dfi dynamic-function-runner.cpp dfi-ledger.cpp)
-target_link_libraries(ledger-dfi PUBLIC ndn-cxx)
-target_link_libraries(ledger-dfi PUBLIC wasmtime)
+target_compile_options(ledger-dfi PUBLIC ${NDN_CXX_CFLAGS})
+target_link_libraries(ledger-dfi PUBLIC ${NDN_CXX_LIBRARIES} wasmtime)

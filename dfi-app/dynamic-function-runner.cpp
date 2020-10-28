@@ -44,7 +44,7 @@ void
 DynamicFunctionRunner::runWatFile(const std::string &fileName)
 {
   // Read our input file, which in this case is a wat text file.
-  FILE *file = fopen(fileName, "r");
+  FILE *file = fopen(fileName.c_str(), "r");
   assert(file != NULL);
   fseek(file, 0L, SEEK_END);
   size_t file_size = ftell(file);
@@ -68,7 +68,7 @@ void
 DynamicFunctionRunner::runWasmFile(const std::string &fileName)
 {
   // Read our input file, which in this case is a wasm file.
-  FILE *file = fopen(fileName, "r");
+  FILE *file = fopen(fileName.c_str(), "r");
   assert(file != NULL);
   fseek(file, 0L, SEEK_END);
   size_t file_size = ftell(file);
@@ -97,10 +97,10 @@ DynamicFunctionRunner::compile(wasm_byte_vec_t *wasm)
 {
   // Compile our modules
   wasm_module_t *module = NULL;
-  wasmtime_error_t *error = wasmtime_module_new(m_engine, &wasm, &module);
+  wasmtime_error_t *error = wasmtime_module_new(m_engine, wasm, &module);
   if (!module)
     exit_with_error("failed to compile module", error, NULL);
-  wasm_byte_vec_delete(&wasm);
+  wasm_byte_vec_delete(wasm);
   return module;
 }
 
