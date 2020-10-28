@@ -5,5 +5,7 @@
 #include "dynamic-function-runner.h"
 
 int main() {
+    DynamicFunctionRunner runner;
+    
     return 0;
 }
