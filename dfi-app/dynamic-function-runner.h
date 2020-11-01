@@ -20,13 +20,28 @@ public:
   ~DynamicFunctionRunner();
 
   void
-  runWatFile(const std::string &fileName);
+  runWatProgram(const std::string &fileName);
 
   void
-  runWasmFile(const std::string &fileName);
+  runWasmProgram(const std::string &fileName);
 
   void
-  runWasmBlock(const ndn::Block &block);
+  runWasmProgram(const ndn::Block &block);
+
+  void
+  runWasmProgram(wasm_byte_vec_t *binary);
+
+  ndn::Block
+  runWatModule(const std::string &fileName, const ndn::Block& argument);
+
+  ndn::Block
+  runWasmModule(const std::string &fileName, const ndn::Block& argument);
+
+  ndn::Block
+  runWasmModule(const ndn::Block &block, const ndn::Block& argument);
+
+  ndn::Block
+  runWasmModule(wasm_byte_vec_t *binary,const ndn::Block& argument);
 
   void
   setGetBlockFunc(std::function<ndn::optional<ndn::Block>(ndn::Block)> getBlock);
@@ -35,8 +50,10 @@ public:
   setSetBlockFunc(std::function<int(ndn::Block, ndn::Block)> setBlock);
 
 private:
-  void
-  runWasmModule(wasm_module_t *module);
+    static ndn::Block getBlockFromMemory(wasm_memory_t *memory, size_t size, size_t offset = 0);
+    static void writeBlockToMemory(wasm_memory_t *memory, const ndn::Block& block, size_t offset = 0);
+
+private:
 
   wasm_module_t *
   compile(wasm_byte_vec_t *wasm);
@@ -49,6 +66,9 @@ private:
 
   void
   run_program(wasmtime_linker_t *linker_program);
+
+  ndn::Block
+  run_module(wasm_module_t *module, const ndn::Block& argument);
 
   void
   exit_with_error(const char *message, wasmtime_error_t *error, wasm_trap_t *trap);
