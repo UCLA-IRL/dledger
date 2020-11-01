@@ -36,6 +36,17 @@ void DynamicFunctionRunner::writeBlockToMemory(wasm_memory_t *memory, const ndn:
     auto mem_arr = wasm_memory_data(memory);
     memcpy(mem_arr + offset, block.wire(), block.size());
 }
+void DynamicFunctionRunner::fileToVec(const std::string& fileName, wasm_byte_vec_t* vector) {
+    // Read our input file, which in this case is a wat text file.
+    FILE *file = fopen(fileName.c_str(), "r");
+    assert(file != nullptr);
+    fseek(file, 0L, SEEK_END);
+    size_t file_size = ftell(file);
+    fseek(file, 0L, SEEK_SET);
+    wasm_byte_vec_new_uninitialized(vector, file_size);
+    assert(fread(vector->data, file_size, 1, file) == 1);
+    fclose(file);
+}
 
 DynamicFunctionRunner::DynamicFunctionRunner()
 {
@@ -53,15 +64,8 @@ DynamicFunctionRunner::~DynamicFunctionRunner()
 void
 DynamicFunctionRunner::runWatProgram(const std::string &fileName){
     // Read our input file, which in this case is a wat text file.
-    FILE *file = fopen(fileName.c_str(), "r");
-    assert(file != nullptr);
-    fseek(file, 0L, SEEK_END);
-    size_t file_size = ftell(file);
-    fseek(file, 0L, SEEK_SET);
     wasm_byte_vec_t wat;
-    wasm_byte_vec_new_uninitialized(&wat, file_size);
-    assert(fread(wat.data, file_size, 1, file) == 1);
-    fclose(file);
+    fileToVec(fileName, &wat);
 
     // Parse the wat into the binary wasm format
     wasm_byte_vec_t wasm;
@@ -77,15 +81,8 @@ DynamicFunctionRunner::runWatProgram(const std::string &fileName){
 void
 DynamicFunctionRunner::runWasmProgram(const std::string &fileName){
     // Read our input file, which in this case is a wasm file.
-    FILE *file = fopen(fileName.c_str(), "r");
-    assert(file != nullptr);
-    fseek(file, 0L, SEEK_END);
-    size_t file_size = ftell(file);
-    fseek(file, 0L, SEEK_SET);
     wasm_byte_vec_t wasm;
-    wasm_byte_vec_new_uninitialized(&wasm, file_size);
-    assert(fread(wasm.data, file_size, 1, file) == 1);
-    fclose(file);
+    fileToVec(fileName, &wasm);
 
     runWasmProgram(&wasm);
     wasm_byte_vec_delete(&wasm);
@@ -112,15 +109,8 @@ DynamicFunctionRunner::runWasmProgram(wasm_byte_vec_t *binary){
 ndn::Block
 DynamicFunctionRunner::runWatModule(const std::string &fileName, const ndn::Block& argument){
     // Read our input file, which in this case is a wat text file.
-    FILE *file = fopen(fileName.c_str(), "r");
-    assert(file != nullptr);
-    fseek(file, 0L, SEEK_END);
-    size_t file_size = ftell(file);
-    fseek(file, 0L, SEEK_SET);
     wasm_byte_vec_t wat;
-    wasm_byte_vec_new_uninitialized(&wat, file_size);
-    assert(fread(wat.data, file_size, 1, file) == 1);
-    fclose(file);
+    fileToVec(fileName, &wat);
 
     // Parse the wat into the binary wasm format
     wasm_byte_vec_t wasm;
@@ -137,15 +127,8 @@ DynamicFunctionRunner::runWatModule(const std::string &fileName, const ndn::Bloc
 ndn::Block
 DynamicFunctionRunner::runWasmModule(const std::string &fileName, const ndn::Block& argument){
     // Read our input file, which in this case is a wasm file.
-    FILE *file = fopen(fileName.c_str(), "r");
-    assert(file != nullptr);
-    fseek(file, 0L, SEEK_END);
-    size_t file_size = ftell(file);
-    fseek(file, 0L, SEEK_SET);
     wasm_byte_vec_t wasm;
-    wasm_byte_vec_new_uninitialized(&wasm, file_size);
-    assert(fread(wasm.data, file_size, 1, file) == 1);
-    fclose(file);
+    fileToVec(fileName, &wasm);
 
     ndn::Block b = runWasmModule(&wasm, argument);
     wasm_byte_vec_delete(&wasm);

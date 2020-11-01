@@ -52,6 +52,7 @@ public:
 private:
     static ndn::Block getBlockFromMemory(wasm_memory_t *memory, size_t size, size_t offset = 0);
     static void writeBlockToMemory(wasm_memory_t *memory, const ndn::Block& block, size_t offset = 0);
+    static void fileToVec(const std::string& fileName, wasm_byte_vec_t* vector);
 
 private:
 
