@@ -22,8 +22,13 @@ to tweak the `-lpthread` and such annotations.
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <poll.h>
 #include <ndn-cxx/encoding/block.hpp>
 #include <utility>
+#include <boost/thread.hpp>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <signal.h>
 
 DynamicFunctionRunner *currentRunner;
 wasm_memory_t *currentMemory;
@@ -102,8 +107,7 @@ DynamicFunctionRunner::runWasmProgram(const ndn::Block &block){
 void
 DynamicFunctionRunner::runWasmProgram(wasm_byte_vec_t *binary){
     wasm_module_t *module = compile(binary);
-    auto linked = instantiate_wasi(module);
-    return run_program(linked);
+    return run_program(module);
 }
 
 ndn::Block
@@ -150,7 +154,7 @@ DynamicFunctionRunner::runWasmModule(const ndn::Block &block, const ndn::Block& 
 ndn::Block
 DynamicFunctionRunner::runWasmModule(wasm_byte_vec_t *binary, const ndn::Block& argument){
     wasm_module_t *module = this->compile(binary);
-    return run_module(module, argument);
+    return run_wasi_module(module, argument);
 }
 
 wasm_module_t *
@@ -210,20 +214,131 @@ DynamicFunctionRunner::instantiate_wasi(wasm_module_t *module)
 }
 
 void
-DynamicFunctionRunner::run_program(wasmtime_linker_t *linker_program)
+DynamicFunctionRunner::run_program(wasm_module_t *module)
 {
-  // Run it.
-  wasm_func_t *func;
-  wasm_name_t empty;
-  wasm_name_new_from_string(&empty, "");
-  wasm_trap_t *trap = nullptr;
-  wasmtime_error_t *error = wasmtime_linker_get_default(linker_program, &empty, &func);
-  if (error != nullptr)
-    exit_with_error("failed to locate default export for module", error, nullptr);
-  error = wasmtime_func_call(func, nullptr, 0, nullptr, 0, &trap);
-  if (error != nullptr)
-    exit_with_error("error calling default export", error, trap);
-  wasm_name_delete(&empty);
+    //instantiate
+    auto linked_program = instantiate_wasi(module);
+
+    // Run it.
+    wasm_func_t *func;
+    wasm_name_t empty;
+    wasm_name_new_from_string(&empty, "");
+    wasm_trap_t *trap = nullptr;
+    wasmtime_error_t *error = wasmtime_linker_get_default(linked_program, &empty, &func);
+    if (error != nullptr)
+        exit_with_error("failed to locate default export for module", error, nullptr);
+    error = wasmtime_func_call(func, nullptr, 0, nullptr, 0, &trap);
+    if (error != nullptr)
+        exit_with_error("error calling default export", error, trap);
+    wasm_name_delete(&empty);
+}
+
+ndn::Block
+DynamicFunctionRunner::run_wasi_module(wasm_module_t *module, const ndn::Block& argument){
+    //pipe creation (read end, write end)
+    int stdin_pipe_fds[2], stdout_pipe_fds[2];
+    pipe(stdin_pipe_fds);
+    pipe(stdout_pipe_fds);
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        //set pipes
+        close(0);
+        close(1);
+        dup(stdin_pipe_fds[0]);
+        dup(stdout_pipe_fds[1]);
+        close(stdin_pipe_fds[0]);
+        close(stdout_pipe_fds[1]);
+
+        //instantiate
+        auto linked_program = instantiate_wasi(module);
+
+        // Run it.
+        wasm_func_t *func;
+        wasm_name_t empty;
+        wasm_name_new_from_string(&empty, "");
+        wasm_trap_t *trap = nullptr;
+        wasmtime_error_t *error = wasmtime_linker_get_default(linked_program, &empty, &func);
+        if (error != nullptr)
+            exit_with_error("failed to locate default export for module", error, nullptr);
+        error = wasmtime_func_call(func, nullptr, 0, nullptr, 0, &trap);
+        if (error != nullptr)
+            exit_with_error("error calling default export", error, trap);
+        wasm_name_delete(&empty);
+        exit(0);
+    }
+
+    std::vector<uint8_t> buf(8800);
+
+    //pipe open
+    FILE * stdin_pipe = fdopen(stdin_pipe_fds[1], "w");
+    FILE * stdout_pipe = fdopen(stdout_pipe_fds[0], "r");
+    assert(stdin_pipe && stdout_pipe);
+    pollfd poll_structs[1] = {
+            {stdout_pipe_fds[0], POLLIN, 0}
+    };
+
+    //argument
+    int argument_size = argument.size();
+    assert(fwrite(&argument_size, 4, 1, stdin_pipe) == 1);
+    assert(fwrite(argument.wire(), argument_size, 1, stdin_pipe) == 1);
+    fflush(stdin_pipe);
+
+    //waiting
+    bool done = false;
+    ndn::Block return_block;
+    for (int i = 0; i < 200; i ++) { // 2 second wait total
+        //check io
+        if (poll(poll_structs, 1, 10) != 0) {
+            if ((poll_structs[0].revents & POLLHUP) || (poll_structs[0].revents & POLLERR)) {
+                break;
+            }
+            assert(fread(buf.data(), 1, 3, stdout_pipe) == 3);
+            if (!memcmp(buf.data(), "GET", 3)) {
+                assert(fread(buf.data(), 4, 1, stdout_pipe) == 1);
+                uint32_t block_size = *reinterpret_cast<uint32_t *>(buf.data());
+                assert(fread(buf.data(), block_size, 1, stdout_pipe) == 1);
+                auto name_block = ndn::Block(buf.data(), block_size);
+                auto result_block = m_getBlock(name_block);
+                if (result_block) {
+                    block_size = result_block->size();
+                    assert(fwrite(&block_size, 4, 1, stdin_pipe) == 1);
+                    assert(fwrite(result_block->wire(), block_size, 1, stdin_pipe) == 1);
+                    fflush(stdin_pipe);
+                } else {
+                    block_size = 0;
+                    assert(fwrite(&block_size, 4, 1, stdin_pipe) == 1);
+                    fflush(stdin_pipe);
+                }
+            } else if (!memcmp(buf.data(), "SET", 3)) {
+                assert(fread(buf.data(), 4, 1, stdout_pipe) == 1);
+                uint32_t name_size = *reinterpret_cast<uint32_t *>(buf.data());
+                assert(fread(buf.data(), 4, 1, stdout_pipe) == 1);
+                uint32_t block_size = *reinterpret_cast<uint32_t *>(buf.data());
+                assert(fread(buf.data(), name_size, 1, stdout_pipe) == 1);
+                auto name_block = ndn::Block(buf.data(), name_size);
+                assert(fread(buf.data(), block_size, 1, stdout_pipe) == 1);
+                auto block_block = ndn::Block(buf.data(), block_size);
+                auto result = m_setBlock(name_block, block_block);
+                assert(fwrite(&result, 4, 1, stdin_pipe) == 1);
+                fflush(stdin_pipe);
+            } else if (!memcmp(buf.data(), "DNE", 3)) {
+                assert(fread(buf.data(), 4, 1, stdout_pipe) == 1);
+                uint32_t block_size = *reinterpret_cast<uint32_t *>(buf.data());
+                assert(fread(buf.data(), block_size, 1, stdout_pipe) == 1);
+                return_block = ndn::Block(buf.data(), block_size);
+            }
+        }
+        if ((done = kill(pid, 0) == -1))
+            break;
+    }
+
+    if (!done) {
+        kill(pid, SIGKILL);
+    }
+    fclose(stdin_pipe);
+    fclose(stdout_pipe);
+    return return_block;
 }
 
 ndn::Block

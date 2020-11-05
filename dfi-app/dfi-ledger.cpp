@@ -15,7 +15,7 @@ int main() {
             printf("Called getBlock on: %s\n", name.toUri().c_str());
             return name.appendVersion().wireEncode();
         });
-        auto ret = runner.runWatModule("dfi-app/test0.wat", ndn::Name("/a/b/c").wireEncode());
+        auto ret = runner.runWasmModule("dfi-app/test2.wasm", ndn::Name("/a/b/c").wireEncode());
         auto name = ndn::Name(ret);
         printf("Returned with on: %s\n", name.toUri().c_str());
     }

@@ -9,3 +9,4 @@ build
 .idea/
 cmake-build-*/
 dfi-app/wasmtime-c-api
+dfi-app/*/target

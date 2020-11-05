@@ -66,7 +66,10 @@ private:
   instantiate_wasi(wasm_module_t *module);
 
   void
-  run_program(wasmtime_linker_t *linker_program);
+  run_program(wasm_module_t *module);
+
+  ndn::Block
+  run_wasi_module(wasm_module_t *module, const ndn::Block& argument);
 
   ndn::Block
   run_module(wasm_module_t *module, const ndn::Block& argument);
