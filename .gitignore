@@ -10,3 +10,4 @@ build
 cmake-build-*/
 dfi-app/wasmtime-c-api
 dfi-app/*/target
+*-build
