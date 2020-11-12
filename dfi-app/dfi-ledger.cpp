@@ -23,7 +23,13 @@ int main() {
         memcpy(argument_vec.data(), argument.c_str(), argument.size());
         auto ret = runner.runWasmModule("dfi-app/test2.wasm", argument_vec);
         std::string return_val(reinterpret_cast<char *>(ret.data()), ret.size());
-        printf("Returned with : %s\n", return_val.c_str());
+        printf("Returned with : %s\n\n", return_val.c_str());
+        fflush(stdout);
+
+        // try out C
+        ret = runner.runWasmModule("dfi-app/c-test1/wasm-build/c-test1.wasm", argument_vec);
+        std::string c_return_val(reinterpret_cast<char *>(ret.data()), ret.size());
+        printf("C Returned with : %s\n", c_return_val.c_str());
     }
 
     // example of running a program

@@ -45,3 +45,7 @@ link_directories(wasmtime-c-api/lib)
 add_executable(ledger-dfi dynamic-function-runner.cpp dfi-ledger.cpp)
 target_compile_options(ledger-dfi PUBLIC ${NDN_CXX_CFLAGS})
 target_link_libraries(ledger-dfi PUBLIC ${NDN_CXX_LIBRARIES} wasmtime)
+
+if (BUILD_EXAMPLES)
+    add_subdirectory(c-test1)
+endif(BUILD_EXAMPLES)

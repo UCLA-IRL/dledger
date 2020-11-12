@@ -269,6 +269,8 @@ DynamicFunctionRunner::run_wasi_module(wasm_module_t *module, const std::vector<
         if (error != nullptr)
             exit_with_error("error calling default export", error, trap);
         wasm_name_delete(&empty);
+        fclose(stdin);
+        fclose(stdout);
         exit(0);
     }
 
@@ -296,13 +298,17 @@ DynamicFunctionRunner::run_wasi_module(wasm_module_t *module, const std::vector<
     for (int i = 0; i < 200; i ++) { // 2 second wait total
         //check io
         if (poll(poll_structs, 1, 10) != 0) {
+            if (poll_structs[0].revents & POLLIN) {
+                executeCallback(stdout_pipe, stdin_pipe, return_buffer);
+            }
             if ((poll_structs[0].revents & POLLHUP) || (poll_structs[0].revents & POLLERR)) {
+                done = true;
                 break;
             }
-            executeCallback(stdout_pipe, stdin_pipe, return_buffer);
         }
-        if ((done = kill(pid, 0) == -1))
+        if ((done = ((waitpid(pid, nullptr, WNOHANG) != 0)))) {
             break;
+        }
     }
 
     if (!done) {
@@ -410,7 +416,9 @@ DynamicFunctionRunner::executeCallback(int len, wasm_memory_t *memory) {
 void
 DynamicFunctionRunner::executeCallback(FILE *wasms_out, FILE *wasms_in, std::vector<uint8_t>& return_buffer){
     std::vector<uint8_t> buf(8800);
-    assert(fread(buf.data(), 1, callbackNameSize, wasms_out) == callbackNameSize);
+    int ret = fread(buf.data(), 1, callbackNameSize, wasms_out);
+    if (ret == 0) return;
+    assert(ret == callbackNameSize);
     std::string func_name(reinterpret_cast<char *>(buf.data()), callbackNameSize);
     assert(fread(buf.data(), 4, 1, wasms_out) == 1);
     uint32_t block_size = *reinterpret_cast<uint32_t *>(buf.data());
