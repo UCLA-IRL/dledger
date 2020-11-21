@@ -7,7 +7,6 @@
 #include "dynamic-function-runner.h"
 #include <iostream>
 #include <unordered_set>
-#include <ndn-cxx/security/signature-sha256-with-rsa.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
 #include <boost/asio/io_service.hpp>
 #include <ndn-cxx/util/io.hpp>
@@ -92,10 +91,12 @@ void periodicProcessRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler,
         block.push_back(filteredItem.first.wireEncode());
         block.push_back(filteredItem.second);
     }
-    ReturnCode result = ledger->createRecord(record);
-    if (!result.success()) {
-        std::cout << "- Adding record error : " << result.what() << std::endl;
-        scheduler.schedule(time::seconds(1), [&](){ledger->createRecord(record);});
+    if (toProcessNum.size() != 0) {
+        ReturnCode result = ledger->createRecord(record);
+        if (!result.success()) {
+            std::cout << "- Adding record error : " << result.what() << std::endl;
+            scheduler.schedule(time::seconds(1), [&]() { ledger->createRecord(record); });
+        }
     }
 
     // schedule for the next record generation
@@ -104,7 +105,7 @@ void periodicProcessRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler,
 
 void addWasmRecord(shared_ptr<Ledger> ledger) {
     Record record(RecordType::GENERIC_RECORD, "dfi_filter1");
-    std::ifstream file("filter1.wasm", std::ios::binary | std::ios::ate);
+    std::ifstream file("dfi-app/dfi-filter1.wasm", std::ios::binary | std::ios::ate);
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
 
@@ -139,7 +140,7 @@ shared_ptr<Ledger> setupLedger(const std::string& idName, std::shared_ptr<Config
         }
     });
 
-    if (idName == "test-1") {
+    if (idName == "test-a") {
         addWasmRecord(ledger);
     }
 
