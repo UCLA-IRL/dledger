@@ -23,14 +23,11 @@ to tweak the `-lpthread` and such annotations.
 #include <cstdio>
 #include <cstdlib>
 #include <poll.h>
-#include <ndn-cxx/encoding/block.hpp>
 #include <utility>
-#include <boost/thread.hpp>
-#include <sys/stat.h>
 #include <unistd.h>
-#include <signal.h>
+#include <csignal>
 
-DynamicFunctionRunner *currentRunner;
+const DynamicFunctionRunner *currentRunner;
 wasm_memory_t *currentMemory;
 
 std::vector<uint8_t> DynamicFunctionRunner::getBlockFromMemory(wasm_memory_t *memory, size_t size, size_t offset){
@@ -69,7 +66,7 @@ DynamicFunctionRunner::~DynamicFunctionRunner()
 }
 
 void
-DynamicFunctionRunner::runWatProgram(const std::string &fileName){
+DynamicFunctionRunner::runWatProgram(const std::string &fileName) const {
     // Read our input file, which in this case is a wat text file.
     wasm_byte_vec_t wat;
     fileToVec(fileName, &wat);
@@ -86,7 +83,7 @@ DynamicFunctionRunner::runWatProgram(const std::string &fileName){
 }
 
 void
-DynamicFunctionRunner::runWasmProgram(const std::string &fileName){
+DynamicFunctionRunner::runWasmProgram(const std::string &fileName) const {
     // Read our input file, which in this case is a wasm file.
     wasm_byte_vec_t wasm;
     fileToVec(fileName, &wasm);
@@ -96,7 +93,7 @@ DynamicFunctionRunner::runWasmProgram(const std::string &fileName){
 }
 
 void
-DynamicFunctionRunner::runWasmProgram(const ndn::Block &block){
+DynamicFunctionRunner::runWasmProgram(const ndn::Block &block) const {
     // copy code to wasm byte vec
     wasm_byte_vec_t wasm;
     wasm_byte_vec_new_uninitialized(&wasm, block.value_size());
@@ -107,13 +104,13 @@ DynamicFunctionRunner::runWasmProgram(const ndn::Block &block){
 }
 
 void
-DynamicFunctionRunner::runWasmProgram(wasm_byte_vec_t *binary){
+DynamicFunctionRunner::runWasmProgram(wasm_byte_vec_t *binary) const {
     wasm_module_t *module = compile(binary);
     return run_program(module);
 }
 
 std::vector<uint8_t>
-DynamicFunctionRunner::runWatModule(const std::string &fileName, const std::vector<uint8_t>& argument){
+DynamicFunctionRunner::runWatModule(const std::string &fileName, const std::vector<uint8_t>& argument) const {
     // Read our input file, which in this case is a wat text file.
     wasm_byte_vec_t wat;
     fileToVec(fileName, &wat);
@@ -131,7 +128,7 @@ DynamicFunctionRunner::runWatModule(const std::string &fileName, const std::vect
 }
 
 std::vector<uint8_t>
-DynamicFunctionRunner::runWasmModule(const std::string &fileName, const std::vector<uint8_t>& argument){
+DynamicFunctionRunner::runWasmModule(const std::string &fileName, const std::vector<uint8_t>& argument) const {
     // Read our input file, which in this case is a wasm file.
     wasm_byte_vec_t wasm;
     fileToVec(fileName, &wasm);
@@ -142,7 +139,7 @@ DynamicFunctionRunner::runWasmModule(const std::string &fileName, const std::vec
 }
 
 std::vector<uint8_t>
-DynamicFunctionRunner::runWasmModule(const ndn::Block &block, const std::vector<uint8_t>& argument){
+DynamicFunctionRunner::runWasmModule(const ndn::Block &block, const std::vector<uint8_t>& argument) const {
     // copy code to wasm byte vec
     wasm_byte_vec_t wasm;
     wasm_byte_vec_new_uninitialized(&wasm, block.value_size());
@@ -154,13 +151,60 @@ DynamicFunctionRunner::runWasmModule(const ndn::Block &block, const std::vector<
 }
 
 std::vector<uint8_t>
-DynamicFunctionRunner::runWasmModule(wasm_byte_vec_t *binary, const std::vector<uint8_t>& argument){
+DynamicFunctionRunner::runWasmModule(wasm_byte_vec_t *binary, const std::vector<uint8_t>& argument) const {
+    wasm_module_t *module = this->compile(binary);
+    return run_module(module, argument);
+}
+
+std::vector<uint8_t>
+DynamicFunctionRunner::runWatPipeModule(const std::string &fileName, const std::vector<uint8_t>& argument) const {
+    // Read our input file, which in this case is a wat text file.
+    wasm_byte_vec_t wat;
+    fileToVec(fileName, &wat);
+
+    // Parse the wat into the binary wasm format
+    wasm_byte_vec_t wasm;
+    wasmtime_error_t *error = wasmtime_wat2wasm(&wat, &wasm);
+    if (error != nullptr)
+        exit_with_error("failed to parse wat", error, nullptr);
+    wasm_byte_vec_delete(&wat);
+
+    auto b = runWasmPipeModule(&wasm, argument);
+    wasm_byte_vec_delete(&wasm);
+    return b;
+}
+
+std::vector<uint8_t>
+DynamicFunctionRunner::runWasmPipeModule(const std::string &fileName, const std::vector<uint8_t>& argument) const {
+    // Read our input file, which in this case is a wasm file.
+    wasm_byte_vec_t wasm;
+    fileToVec(fileName, &wasm);
+
+    auto b = runWasmPipeModule(&wasm, argument);
+    wasm_byte_vec_delete(&wasm);
+    return b;
+}
+
+std::vector<uint8_t>
+DynamicFunctionRunner::runWasmPipeModule(const ndn::Block &block, const std::vector<uint8_t>& argument) const {
+    // copy code to wasm byte vec
+    wasm_byte_vec_t wasm;
+    wasm_byte_vec_new_uninitialized(&wasm, block.value_size());
+    memcpy(wasm.data, block.value(), block.value_size());
+
+    auto b = runWasmPipeModule(&wasm, argument);
+    wasm_byte_vec_delete(&wasm);
+    return b;
+}
+
+std::vector<uint8_t>
+DynamicFunctionRunner::runWasmPipeModule(wasm_byte_vec_t *binary, const std::vector<uint8_t>& argument) const {
     wasm_module_t *module = this->compile(binary);
     return run_wasi_module(module, argument);
 }
 
 wasm_module_t *
-DynamicFunctionRunner::compile(wasm_byte_vec_t *wasm)
+DynamicFunctionRunner::compile(wasm_byte_vec_t *wasm) const
 {
   // Compile our modules
   wasm_module_t *module = nullptr;
@@ -172,7 +216,7 @@ DynamicFunctionRunner::compile(wasm_byte_vec_t *wasm)
 }
 
 wasm_instance_t *
-DynamicFunctionRunner::instantiate(wasm_module_t *module, const wasm_extern_t **imports, size_t import_length)
+DynamicFunctionRunner::instantiate(wasm_module_t *module, const wasm_extern_t **imports, size_t import_length) const
 {
   // Instantiate.
   wasm_instance_t *instance = nullptr;
@@ -184,7 +228,7 @@ DynamicFunctionRunner::instantiate(wasm_module_t *module, const wasm_extern_t **
 }
 
 wasmtime_linker_t *
-DynamicFunctionRunner::instantiate_wasi(wasm_module_t *module)
+DynamicFunctionRunner::instantiate_wasi(wasm_module_t *module) const
 {
   // Instantiate wasi
   wasi_config_t *wasi_config = wasi_config_new();
@@ -216,7 +260,7 @@ DynamicFunctionRunner::instantiate_wasi(wasm_module_t *module)
 }
 
 void
-DynamicFunctionRunner::run_program(wasm_module_t *module)
+DynamicFunctionRunner::run_program(wasm_module_t *module) const
 {
     //instantiate
     auto linked_program = instantiate_wasi(module);
@@ -236,7 +280,7 @@ DynamicFunctionRunner::run_program(wasm_module_t *module)
 }
 
 std::vector<uint8_t>
-DynamicFunctionRunner::run_wasi_module(wasm_module_t *module, const std::vector<uint8_t>& argument){
+DynamicFunctionRunner::run_wasi_module(wasm_module_t *module, const std::vector<uint8_t>& argument) const{
     //pipe creation (read end, write end)
     int stdin_pipe_fds[2], stdout_pipe_fds[2];
     pipe(stdin_pipe_fds);
@@ -320,7 +364,7 @@ DynamicFunctionRunner::run_wasi_module(wasm_module_t *module, const std::vector<
 }
 
 std::vector<uint8_t>
-DynamicFunctionRunner::run_module(wasm_module_t *module,const std::vector<uint8_t>& argument)
+DynamicFunctionRunner::run_module(wasm_module_t *module,const std::vector<uint8_t>& argument) const
 {
   //make imports
   wasm_limits_t memory_limit = {.min = 1, .max = 1};
@@ -400,7 +444,7 @@ DynamicFunctionRunner::setCallback(std::string name, std::function<std::vector<u
 }
 
 int
-DynamicFunctionRunner::executeCallback(int len, wasm_memory_t *memory) {
+DynamicFunctionRunner::executeCallback(int len, wasm_memory_t *memory) const {
     std::string func_name(wasm_memory_data(memory), callbackNameSize);
     std::vector<uint8_t> request_param = getBlockFromMemory(memory, len, callbackNameSize);
     auto it = m_callbackList.find(func_name);
@@ -414,7 +458,7 @@ DynamicFunctionRunner::executeCallback(int len, wasm_memory_t *memory) {
 }
 
 void
-DynamicFunctionRunner::executeCallback(FILE *wasms_out, FILE *wasms_in, std::vector<uint8_t>& return_buffer){
+DynamicFunctionRunner::executeCallback(FILE *wasms_out, FILE *wasms_in, std::vector<uint8_t>& return_buffer) const {
     std::vector<uint8_t> buf(8800);
     int ret = fread(buf.data(), 1, callbackNameSize, wasms_out);
     if (ret == 0) return;

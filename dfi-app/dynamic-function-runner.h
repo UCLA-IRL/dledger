@@ -20,28 +20,40 @@ public:
   ~DynamicFunctionRunner();
 
   void
-  runWatProgram(const std::string &fileName);
+  runWatProgram(const std::string &fileName) const;
 
   void
-  runWasmProgram(const std::string &fileName);
+  runWasmProgram(const std::string &fileName) const;
 
   void
-  runWasmProgram(const ndn::Block &block);
+  runWasmProgram(const ndn::Block &block) const;
 
   void
-  runWasmProgram(wasm_byte_vec_t *binary);
+  runWasmProgram(wasm_byte_vec_t *binary) const;
 
   std::vector<uint8_t>
-  runWatModule(const std::string &fileName, const std::vector<uint8_t>& argument);
+  runWatModule(const std::string &fileName, const std::vector<uint8_t>& argument) const;
 
   std::vector<uint8_t>
-  runWasmModule(const std::string &fileName, const std::vector<uint8_t>& argument);
+  runWasmModule(const std::string &fileName, const std::vector<uint8_t>& argument) const;
 
   std::vector<uint8_t>
-  runWasmModule(const ndn::Block &block, const std::vector<uint8_t>& argument);
+  runWasmModule(const ndn::Block &block, const std::vector<uint8_t>& argument) const;
 
   std::vector<uint8_t>
-  runWasmModule(wasm_byte_vec_t *binary,const std::vector<uint8_t>& argument);
+  runWasmModule(wasm_byte_vec_t *binary,const std::vector<uint8_t>& argument) const;
+
+  std::vector<uint8_t>
+  runWatPipeModule(const std::string &fileName, const std::vector<uint8_t>& argument) const;
+
+  std::vector<uint8_t>
+  runWasmPipeModule(const std::string &fileName, const std::vector<uint8_t>& argument) const;
+
+  std::vector<uint8_t>
+  runWasmPipeModule(const ndn::Block &block, const std::vector<uint8_t>& argument) const;
+
+  std::vector<uint8_t>
+  runWasmPipeModule(wasm_byte_vec_t *binary,const std::vector<uint8_t>& argument) const;
 
   void
   setCallback(std::string name, std::function<std::vector<uint8_t>(std::vector<uint8_t>)> func);
@@ -55,31 +67,31 @@ private:
 private:
 
   wasm_module_t *
-  compile(wasm_byte_vec_t *wasm);
+  compile(wasm_byte_vec_t *wasm) const;
 
   wasm_instance_t *
-  instantiate(wasm_module_t *module, const wasm_extern_t **imports, size_t import_length);
+  instantiate(wasm_module_t *module, const wasm_extern_t **imports, size_t import_length) const;
 
   wasmtime_linker_t *
-  instantiate_wasi(wasm_module_t *module);
+  instantiate_wasi(wasm_module_t *module) const;
 
   void
-  run_program(wasm_module_t *module);
+  run_program(wasm_module_t *module) const;
 
     std::vector<uint8_t>
-  run_wasi_module(wasm_module_t *module, const std::vector<uint8_t>& argument);
+  run_wasi_module(wasm_module_t *module, const std::vector<uint8_t>& argument) const;
 
   std::vector<uint8_t>
-  run_module(wasm_module_t *module, const std::vector<uint8_t>& argument);
+  run_module(wasm_module_t *module, const std::vector<uint8_t>& argument) const;
 
-  void
+  static void
   exit_with_error(const char *message, wasmtime_error_t *error, wasm_trap_t *trap);
 
   int
-  executeCallback(int len, wasm_memory_t *memory);
+  executeCallback(int len, wasm_memory_t *memory) const;
 
   void
-  executeCallback(FILE *wasms_out, FILE *wasms_in, std::vector<uint8_t>& return_buffer);
+  executeCallback(FILE *wasms_out, FILE *wasms_in, std::vector<uint8_t>& return_buffer) const;
 
   std::map<std::string, std::function<std::vector<uint8_t>(std::vector<uint8_t>)>> m_callbackList;
   wasm_engine_t *m_engine;

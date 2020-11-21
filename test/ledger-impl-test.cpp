@@ -54,6 +54,7 @@ main(int argc, char** argv)
       fprintf(stderr, "Usage: %s id_name\n", argv[0]);
       return 1;
   }
+  std::srand(std::time(nullptr));
   std::string idName = argv[1];
   boost::asio::io_service ioService;
   Face face(ioService);
