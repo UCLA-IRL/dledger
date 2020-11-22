@@ -7,19 +7,16 @@ cmake ..
 make
 ```
 
-## With emscripten: 
+## With wasicc:
+To install wasicc:
+```shell script
+pip install wasienv
+``` 
 
 To build wasm using cmake:
 ```bash
 mkdir build && cd build
-emcmake cmake ..
-emmake make
-```
-
-To build js+wasm using cmake:
-```bash
-mkdir build && cd build
-emcmake cmake -DJS=1 ..
+wasimake cmake ..
 emmake make
 ```
 

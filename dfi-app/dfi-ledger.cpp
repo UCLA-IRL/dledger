@@ -52,7 +52,7 @@ Block processRecord(shared_ptr<Ledger> ledger, Name recordName, ndn::Block& exec
     //process!
     std::vector<uint8_t> buf(12);
     memcpy(buf.data(), inputs, 12);
-    auto ans = runner.runWasmPipeModule(executionBlock, buf);
+    auto ans = runner.runWasmModule(executionBlock, buf);
     int ans_int = *ans.data();
     return makeStringBlock(255, std::to_string(ans_int));
 }
@@ -76,11 +76,13 @@ void periodicProcessRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler,
 
     //execute
     int i = 0;
-    for (const auto& item: waitingRecords) {
-        if (toProcessNum.count(i) == 1) {
-            filteredRecords.emplace(item, processRecord(ledger, item, executionBlock, runner));
+    if (executionBlock.isValid()) {
+        for (const auto &item: waitingRecords) {
+            if (toProcessNum.count(i) == 1) {
+                filteredRecords.emplace(item, processRecord(ledger, item, executionBlock, runner));
+            }
+            i++;
         }
-        i++;
     }
 
     //build output block
@@ -91,7 +93,7 @@ void periodicProcessRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler,
         block.push_back(filteredItem.first.wireEncode());
         block.push_back(filteredItem.second);
     }
-    if (toProcessNum.size() != 0) {
+    if (executionBlock.isValid() && toProcessNum.size() != 0) {
         ReturnCode result = ledger->createRecord(record);
         if (!result.success()) {
             std::cout << "- Adding record error : " << result.what() << std::endl;
@@ -100,7 +102,9 @@ void periodicProcessRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler,
     }
 
     // schedule for the next record generation
-    scheduler.schedule(time::milliseconds(15000 + distrib(random_gen) % 10000), [ledger, &scheduler] { periodicAddRecord(ledger, scheduler); });
+    scheduler.schedule(time::milliseconds(15000 + distrib(random_gen) % 10000),
+            [ledger, &scheduler, &waitingRecords, &executionBlock, runner] {
+        periodicProcessRecord(ledger, scheduler, waitingRecords, executionBlock, runner); });
 }
 
 void addWasmRecord(shared_ptr<Ledger> ledger) {
