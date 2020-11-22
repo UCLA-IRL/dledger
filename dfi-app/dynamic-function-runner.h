@@ -61,8 +61,8 @@ public:
   setCallback(std::string name, std::function<std::vector<uint8_t>(std::vector<uint8_t>)> func);
 
 private:
-    static std::vector<uint8_t> getBlockFromMemory(wasmer_memory_t *memory, size_t size, size_t offset = 0);
-    static void writeBlockToMemory(wasmer_memory_t *memory, const std::vector<uint8_t>& block, size_t offset = 0);
+    static std::vector<uint8_t> getBlockFromMemory(const wasmer_memory_t *memory, size_t size, size_t offset = 0);
+    static void writeBlockToMemory(const wasmer_memory_t *memory, const std::vector<uint8_t>& block, size_t offset = 0);
     static std::vector<uint8_t> fileToVec(const std::string& fileName);
     static const int callbackNameSize = 4;
     static wasmer_memory_t *create_wasmer_memory();
@@ -85,7 +85,7 @@ private:
   run_module(std::vector<uint8_t>& module, const std::vector<uint8_t>& argument) const;
 
   int
-  executeCallback(int len, wasmer_memory_t *memory) const;
+  executeCallback(int offset, int len, const wasmer_memory_t *memory) const;
 
   void
   executeCallback(FILE *wasms_out, FILE *wasms_in, std::vector<uint8_t>& return_buffer) const;

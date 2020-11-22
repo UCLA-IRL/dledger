@@ -26,7 +26,7 @@ to tweak the `-lpthread` and such annotations.
 #include <csignal>
 
 const DynamicFunctionRunner *currentRunner;
-wasmer_memory_t *currentMemory;
+uint32_t currentOffset;
 
 // Function to print the most recent error string from Wasmer if we have them
 void print_wasmer_error()
@@ -37,13 +37,13 @@ void print_wasmer_error()
     printf("Error: `%s`\n", error_str);
 }
 
-std::vector<uint8_t> DynamicFunctionRunner::getBlockFromMemory(wasmer_memory_t *memory, size_t size, size_t offset){
+std::vector<uint8_t> DynamicFunctionRunner::getBlockFromMemory(const wasmer_memory_t *memory, size_t size, size_t offset){
     auto mem_arr = wasmer_memory_data(memory);
-    std::vector<uint8_t> buf;
+    std::vector<uint8_t> buf(size);
     memcpy(buf.data(), reinterpret_cast<uint8_t *>(mem_arr + offset), size);
     return std::move(buf);
 }
-void DynamicFunctionRunner::writeBlockToMemory(wasmer_memory_t *memory, const std::vector<uint8_t>& block, size_t offset){
+void DynamicFunctionRunner::writeBlockToMemory(const wasmer_memory_t *memory, const std::vector<uint8_t>& block, size_t offset){
     auto mem_arr = wasmer_memory_data(memory);
     memcpy(mem_arr + offset, block.data(), block.size());
 }
@@ -393,31 +393,22 @@ DynamicFunctionRunner::run_wasi_module(wasm_module_t *module, const std::vector<
 std::vector<uint8_t>
 DynamicFunctionRunner::run_module(std::vector<uint8_t>& module,const std::vector<uint8_t>& argument) const
 {
-  //make imports
-  wasmer_memory_t *memory = create_wasmer_memory();
   currentRunner = this;
-  currentMemory = memory;
-
 
   std::string module_name = "env";
   wasmer_byte_array module_name_bytes = { .bytes = reinterpret_cast<const uint8_t *>(module_name.data()),
                                           .bytes_len = static_cast<uint32_t>(module_name.size()) };
 
-  std::string import_memory_name = "memory";
-  wasmer_byte_array import_memory_name_bytes = { .bytes = reinterpret_cast<const uint8_t *>(import_memory_name.data()),
-                                                 .bytes_len = static_cast<uint32_t>(import_memory_name.size()) };
-
-  // Set the memory to our import object
-  wasmer_import_t memory_import = { .module_name = module_name_bytes,
-            .import_name = import_memory_name_bytes,
-            .tag = wasmer_import_export_kind::WASM_MEMORY };
-  memory_import.value.memory = memory;
-
   // Define our function import
   wasmer_value_tag param_format[1] = {wasmer_value_tag::WASM_I32};
   wasmer_import_func_t *func = wasmer_import_func_new(
-            (void (*)(void *))(uint32_t (*)(wasmer_instance_context_t *, uint32_t))[](wasmer_instance_context_t *ctx, uint32_t in_len) -> uint32_t {
-                return currentRunner->executeCallback(in_len, currentMemory);
+            (void (*)(void *))(uint32_t (*)(wasmer_instance_context_t *, uint32_t))[]
+            (wasmer_instance_context_t *ctx, uint32_t in_len) -> uint32_t {
+                // Get the Wasmer Context from the instance.
+                // NOTE: To get the memory from the Wasmer Instance, it MUST be
+                // from the instance context, and NOT the imported memory.
+                const wasmer_memory_t *memory = wasmer_instance_context_memory(ctx, 0);
+                return currentRunner->executeCallback(currentOffset, in_len, memory);
                 },
             param_format, 1,
             param_format, 1
@@ -431,17 +422,32 @@ DynamicFunctionRunner::run_module(std::vector<uint8_t>& module,const std::vector
             .value.func = func };
 
   // Define an array containing our imports
-  wasmer_import_t imports[2] = {memory_import, callback_import};
+  wasmer_import_t imports[2] = {callback_import};
 
-  wasmer_instance_t *instance = instantiate(module, imports, 2);
+  wasmer_instance_t *instance = instantiate(module, imports, 1);
 
-  //prep argument
-  memcpy(wasmer_memory_data(memory), argument.data(), argument.size());
   wasmer_value_t arg_val = {.tag=wasmer_value_tag::WASM_I32, .value.I32=static_cast<int32_t>(argument.size())};
   wasmer_value_t ret_val = {.tag=wasmer_value_tag::WASM_I32, .value.I32=0};
 
-  // Call the Wasm function
+  // Get offset
   wasmer_result_t call_result = wasmer_instance_call(
+          instance, "callback_buffer_offset", &arg_val, 0, &ret_val, 1
+    );
+  if (call_result != wasmer_result_t::WASMER_OK) {
+      print_wasmer_error();
+  }
+  // Assert the Wasm instantion completed
+  assert(call_result == wasmer_result_t::WASMER_OK);
+  currentOffset = ret_val.value.I32;
+  ret_val.value.I32 = 0;
+
+  //prep argument
+  auto ctx = wasmer_instance_context_get(instance);
+  auto memory = wasmer_instance_context_memory(ctx, 0);
+  memcpy(wasmer_memory_data(memory) + currentOffset, argument.data(), argument.size());
+
+  // Call the Wasm function
+  call_result = wasmer_instance_call(
           instance, // Our Wasm Instance
           "run", // the name of the exported function we want to call on the guest Wasm module
           &arg_val, // Our array of parameters
@@ -456,8 +462,7 @@ DynamicFunctionRunner::run_module(std::vector<uint8_t>& module,const std::vector
   assert(call_result == wasmer_result_t::WASMER_OK);
 
   //cleanup
-  std::vector<uint8_t> return_block = getBlockFromMemory(memory, static_cast<size_t>(ret_val.value.I32));
-  wasmer_memory_destroy(memory);
+  std::vector<uint8_t> return_block = getBlockFromMemory(memory, static_cast<size_t>(ret_val.value.I32), currentOffset);
   wasmer_instance_destroy(instance);
   return std::move(return_block);
 }
@@ -469,16 +474,16 @@ DynamicFunctionRunner::setCallback(std::string name, std::function<std::vector<u
 }
 
 int
-DynamicFunctionRunner::executeCallback(int len, wasmer_memory_t *memory) const {
-    std::string func_name((char *)wasmer_memory_data(memory), callbackNameSize);
-    std::vector<uint8_t> request_param = getBlockFromMemory(memory, len, callbackNameSize);
+DynamicFunctionRunner::executeCallback(int offset, int len, const wasmer_memory_t *memory) const {
+    std::string func_name((char *)wasmer_memory_data(memory) + offset, callbackNameSize);
+    std::vector<uint8_t> request_param = getBlockFromMemory(memory, len, offset + callbackNameSize);
     auto it = m_callbackList.find(func_name);
     if (it == m_callbackList.end()) {
         fprintf(stderr, "Call function error: %s\n", func_name.c_str());
         return 0;
     }
     auto result = it->second(request_param);
-    writeBlockToMemory(memory, result);
+    writeBlockToMemory(memory, result, offset);
     return result.size();
 }
 

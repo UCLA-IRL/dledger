@@ -9,6 +9,13 @@ using namespace ndn;
 int main() {
     DynamicFunctionRunner runner;
 
+    int32_t inputs[3] = {3121,5321,8312};
+    std::vector<uint8_t> buf(12);
+    memcpy(buf.data(), inputs, 12);
+    auto output = runner.runWasmModule("dfi-app/dfi-filter1.wasm", buf);
+    printf("Output: %d\n", *reinterpret_cast<int32_t *>(output.data()));
+
+    /*
     { // example of running a module
         runner.setCallback("GETB", [](std::vector<uint8_t> buf) -> std::vector<uint8_t> {
             std::string input(reinterpret_cast<char *>(buf.data()), buf.size());
@@ -27,12 +34,13 @@ int main() {
         fflush(stdout);
 
         // try out C
-        ret = runner.runWasmPipeModule("dfi-app/c-test1/wasm-build/c-test1.wasm", argument_vec);
+        ret = runner.runWasmPipeModule("dfi-app/c-test1.wasm", argument_vec);
         std::string c_return_val(reinterpret_cast<char *>(ret.data()), ret.size());
         printf("C Returned with : %s\n", c_return_val.c_str());
     }
 
     // example of running a program
     runner.runWasmProgram("dfi-app/test1.wasm");
+     */
     return 0;
 }
