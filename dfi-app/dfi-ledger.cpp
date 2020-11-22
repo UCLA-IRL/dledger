@@ -148,8 +148,8 @@ shared_ptr<Ledger> setupLedger(const std::string& idName, std::shared_ptr<Config
     }
 
     Scheduler scheduler(ioService);
-    periodicAddRecord(ledger, scheduler);
     periodicProcessRecord(ledger, scheduler, waitingRecords, executionBlock, runner);
+    scheduler.schedule(time::seconds(2), [ledger, &scheduler]{periodicAddRecord(ledger, scheduler);});
 
     face.processEvents();
     return ledger;
