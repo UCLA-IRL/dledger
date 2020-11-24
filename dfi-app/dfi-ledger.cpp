@@ -53,7 +53,7 @@ Block processRecord(shared_ptr<Ledger> ledger, Name recordName, ndn::Block& exec
     std::vector<uint8_t> buf(12);
     memcpy(buf.data(), inputs, 12);
     auto ans = runner.runWasmModule(executionBlock, buf);
-    int ans_int = *ans.data();
+    int ans_int = *(int *)ans.data();
     return makeStringBlock(255, std::to_string(ans_int));
 }
 

@@ -24,6 +24,6 @@ int run(int arglen) {
     if (arglen != 12) return 0;
 
     //return
-    buffer[0] = (buffer[0] + buffer[1] + buffer[2]) % 1000;
+    buffer[0] = (buffer[0] % 1000 + buffer[1] % 1000 + buffer[2] % 1000) % 1000;
     return 4;
 }
