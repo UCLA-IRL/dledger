@@ -7,8 +7,12 @@
 
 
 #include <ndn-cxx/util/io.hpp>
+#include <random>
 
 using namespace dledger;
+
+std::random_device rd;  //Will be used to obtain a seed for the random number engine
+std::mt19937 random_gen(rd()); //Standard mersenne_twister_engine seeded with rd()
 
 std::list<std::string> startingPeerPath({
                                                 "./test-certs/test-a.cert",
@@ -34,10 +38,11 @@ makeData(const std::string& name, const std::string& content)
 }
 
 void periodicAddRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler) {
-    Record record(RecordType::GENERIC_RECORD, std::to_string(std::rand()));
-    record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
-    record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
-    record.addRecordItem(makeStringBlock(255, std::to_string(std::rand())));
+    std::uniform_int_distribution<> distrib(1, 1000000);
+    Record record(RecordType::GENERIC_RECORD, std::to_string(distrib(random_gen)));
+    record.addRecordItem(makeStringBlock(255, std::to_string(distrib(random_gen))));
+    record.addRecordItem(makeStringBlock(255, std::to_string(distrib(random_gen))));
+    record.addRecordItem(makeStringBlock(255, std::to_string(distrib(random_gen))));
     ReturnCode result = ledger->createRecord(record);
     if (!result.success()) {
         std::cout << "- Adding record error : " << result.what() << std::endl;
