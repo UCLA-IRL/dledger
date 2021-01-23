@@ -2,7 +2,9 @@
 cmake_minimum_required(VERSION 3.12)
 
 # project name
-project(dledger)
+project(dledger
+        VERSION 0.1
+        DESCRIPTION "A distributed ledger based on NDN")
 
 # flags
 set(CMAKE_CXX_STANDARD 14)
@@ -64,6 +66,19 @@ if (BUILD_DFI)
     add_subdirectory(dfi-app)
 endif(BUILD_DFI)
 
+#configure
+set(PKG_CONFIG_REQUIRES
+        "libndn-cxx >= ${NDN_CXX_VERSION}"
+        )
+set(PKG_CONFIG_LIBS
+        "-L\${libdir} -l${PROJECT_NAME}"
+        )
+set(PKG_CONFIG_CFLAGS
+        "-I\${includedir}"
+        )
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake-pkgconfig.pc.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}.pc")
+
 include(GNUInstallDirs)
 install(TARGETS dledger
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -77,6 +92,9 @@ install(TARGETS ledger-impl-test
 
 install(TARGETS ledger-impl-test-anchor
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}.pc"
+        DESTINATION lib/pkgconfig)
 
 if (BUILD_DIGRAPH)
     install(TARGETS ledger-impl-test-graph
