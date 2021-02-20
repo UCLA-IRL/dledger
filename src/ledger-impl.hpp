@@ -47,8 +47,8 @@ private:
 
   // the function to generate a sync Interest and send it out
   // should be invoked periodically or on solicit request
-  void
-  sendPeriodicSyncInterest();
+  ReturnCode
+  sendSyncInterest();
 
   bool
   checkSyntaxValidityOfRecord(const Data& data);
@@ -88,10 +88,9 @@ private:
   //Siqi's temp function
   struct TailingRecordState{
       bool referenceVerified;
-      std::set<std::string> refSet;
+      std::set<Name> refSet;
       bool endorseVerified;
   };
-  ReturnCode sendSyncInterest();
   static void dumpList(const std::map<Name, TailingRecordState>& weight);
 
   /**
@@ -115,7 +114,7 @@ private:
 
   std::map<Name, TailingRecordState> m_tailRecords;
 
-  std::map<std::string, time::system_clock::TimePoint> m_rateCheck;
+  std::map<Name, time::system_clock::TimePoint> m_rateCheck; // producer to time
 
   // Zhiyi's temp member variable
   std::list<std::pair<Record, time::system_clock::TimePoint>> m_syncStack;

@@ -79,10 +79,10 @@ Record::wireEncode(Block& block) const
   bodyWireEncode(block);
 }
 
-std::string
-Record::getProducerID() const
+Name
+Record::getProducerPrefix() const
 {
-  return RecordName(m_data->getName()).getProducerID();
+  return RecordName(m_data->getName()).getProducerPrefix();
 }
 
 time::system_clock::TimePoint
@@ -149,13 +149,9 @@ Record::bodyWireDecode(const Block& dataContent) {
 }
 
 void
-Record::checkPointerValidity(const Name& prefix, int numPointers) const{
+Record::checkPointerCount(int numPointers) const{
     if (getPointersFromHeader().size() != numPointers) {
         throw std::runtime_error("Less preceding record than expected");
-    }
-    if (RecordName(m_data->getFullName()).getApplicationCommonPrefix() !=
-        prefix.toUri()){
-        throw std::runtime_error("Wrong App common prefix");
     }
 
     std::set<Name> nameSet;

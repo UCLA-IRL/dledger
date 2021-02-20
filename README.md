@@ -21,11 +21,9 @@ To run the test files
 
 # configure NFD
 nfd-start
-nfdc strategy set /dledger-multicast /localhost/nfd/strategy/multicast
 
 # generate keys and certificates
-ndnsec key-gen /dledger/test-anchor
-ndnsec-sign-req /dledger/test-anchor | ndnsec cert-gen -s /dledger/test-anchor - > dledger-anchor.cert 
+ndnsec key-gen /dledger | ndnsec cert-gen -s /dledger - > dledger-anchor.cert 
 
 mkdir test-certs
 ndnsec key-gen /dledger/test-a | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-a.cert

@@ -22,7 +22,7 @@ std::string peerList[] = {
         "/dledger/test-e",
 };
 
-std::string anchorName = "/dledger/test-anchor";
+std::string anchorName = "/dledger";
 
 std::string addCertificateRecord(security::KeyChain& keychain, shared_ptr<Ledger> ledger) {
     CertificateRecord record(std::to_string(std::rand()));
@@ -78,7 +78,7 @@ main(int argc, char** argv)
     security::KeyChain keychain;
     std::shared_ptr<Config> config = nullptr;
     try {
-        config = Config::CustomizedConfig("/dledger-multicast", anchorName,
+        config = Config::CustomizedConfig("/ndn/broadcast/dledger", anchorName,
                                           std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/test-anchor"),
                                           startingPeerPath);
         mkdir("/tmp/dledger-db/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);

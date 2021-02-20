@@ -34,7 +34,7 @@ void periodicAddRecord(shared_ptr<Ledger> ledger, Scheduler& scheduler) {
 std::string getNodeDigest(const Record &r) {
     auto hash = r.m_data->getFullName().get(-1).toUri();
     hash = hash.substr(hash.size() - 5);
-    return "\"" + r.getProducerID() + '/' + hash + "\"";
+    return "\"" + readString(r.getProducerPrefix().get(-1)) + '/' + hash + "\"";
 }
 
 std::string getNodeAttribute(const Record &r) {
@@ -60,7 +60,7 @@ main(int argc, char** argv)
   dot_log.open("records.txt");
 
   try {
-    config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName,
+    config = Config::CustomizedConfig("/ndn/broadcast/dledger", "/dledger/" + idName,
             std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName), startingPeerPath);
     mkdir("/tmp/dledger-db/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   }
@@ -89,8 +89,8 @@ main(int argc, char** argv)
     });
 
   Scheduler scheduler(ioService);
-  periodicAddRecord(ledger, scheduler);
+  scheduler.schedule(time::seconds(2), [ledger, &scheduler]{periodicAddRecord(ledger, scheduler);});
 
-  face.processEvents();
+    face.processEvents();
   return 0;
 }

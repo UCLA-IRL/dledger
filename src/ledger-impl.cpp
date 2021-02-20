@@ -74,7 +74,7 @@ LedgerImpl::LedgerImpl(const Config& config,
             << "- " << m_config.numGenesisBlock << " genesis records have been added to the DLedger" << std::endl
             << "DLedger Initialization Succeed\n\n";
 
-  this->sendPeriodicSyncInterest();
+  this->sendSyncInterest();
 }
 
 LedgerImpl::~LedgerImpl()
@@ -103,27 +103,41 @@ LedgerImpl::createRecord(Record& record)
       }
   }
 
-  std::vector<std::pair<Name, int>> recordList;
+  std::vector<Name> recordPeerList;
+  std::map<Name, std::vector<RecordName>> recordList;
+  int recordCount = 0;
   for (const auto &item : m_tailRecords) {
       if (item.second.refSet.size() <= m_config.appendWeight &&
-            !m_config.peerPrefix.isPrefixOf(item.first) &&
+            m_config.peerPrefix != RecordName(item.first).getProducerPrefix() &&
             item.second.referenceVerified) {
-          recordList.emplace_back(item.first, item.second.refSet.size());
+          auto rName = RecordName(item.first);
+          recordList[rName.getProducerPrefix()].emplace_back(rName);
+          recordPeerList.emplace_back(rName.getProducerPrefix());
+          recordCount ++;
       }
   }
 
   // randomly shuffle the tailing record list
-  std::shuffle(std::begin(recordList), std::end(recordList), m_randomEngine);
+  std::shuffle(recordPeerList.begin(), recordPeerList.end(), m_randomEngine);
+  for (auto& item: recordList) {
+      std::shuffle(item.second.begin(), item.second.end(), m_randomEngine);
+  }
 
   // fulfill the record content with preceding record IDs
   // removal of preceding record is done by addToTailingRecord() at the end
-  if (recordList.size() < m_config.precedingRecordNum) {
+  if (recordCount < m_config.precedingRecordNum) {
       return ReturnCode::notEnoughTailingRecord();
   }
-  for (const auto &tailRecord : recordList) {
-      record.addPointer(tailRecord.first);
-      if (record.getPointersFromHeader().size() >= m_config.precedingRecordNum)
-          break;
+  while (record.getPointersFromHeader().size() < m_config.precedingRecordNum) {
+      for (const auto &tailRecordPeer : recordPeerList) {
+          auto& list = recordList.at(tailRecordPeer);
+          if (list.empty()) continue;
+          record.addPointer(*list.begin());
+          list.erase(list.begin());
+          recordCount --;
+          if (record.getPointersFromHeader().size() >= m_config.precedingRecordNum)
+              break;
+      }
   }
 
   Name dataName = RecordName::generateRecordName(m_config, record);
@@ -198,12 +212,6 @@ LedgerImpl::onTimeout(const Interest& interest)
   std::cout << "Timeout for " << interest << std::endl;
 }
 
-void
-LedgerImpl::sendPeriodicSyncInterest()
-{
-  sendSyncInterest();
-}
-
 ReturnCode LedgerImpl::sendSyncInterest() {
     std::cout << "[LedgerImpl::sendSyncInterest] Send SYNC Interest.\n";
     // SYNC Interest Name: /<multicastPrefix>/SYNC/digest
@@ -235,7 +243,7 @@ ReturnCode LedgerImpl::sendSyncInterest() {
 
     // schedule for the next SyncInterest Sending
     if (m_syncEventID) m_syncEventID.cancel();
-    m_syncEventID = m_scheduler.schedule(m_config.syncInterval, [this] { sendPeriodicSyncInterest(); });
+    m_syncEventID = m_scheduler.schedule(m_config.syncInterval, [this] { sendSyncInterest(); });
     return ReturnCode::noError();
 }
 
@@ -247,15 +255,14 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
     try {
         // format check
         dataRecord = Record(data);
-        dataRecord.checkPointerValidity(
-                m_config.peerPrefix.getPrefix( -1), m_config.precedingRecordNum);
+        dataRecord.checkPointerCount(m_config.precedingRecordNum);
     } catch (const std::exception &e) {
         std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
         return false;
     }
 
     std::cout << "- Step 2: Check signature" << std::endl;
-    std::string producerID = dataRecord.getProducerID();
+    Name producerID = dataRecord.getProducerPrefix();
     if (!m_config.certificateManager->verifySignature(data)) {
         std::cout << "-- Bad Signature." << std::endl;
         return false;
@@ -270,7 +277,7 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
     if (m_rateCheck.find(producerID) == m_rateCheck.end()) {
         m_rateCheck[producerID] = tp;
     } else {
-        if ((time::abs(tp - m_rateCheck[producerID]) < m_config.recordProductionRateLimit)) {
+        if ((time::abs(tp - m_rateCheck.at(producerID)) < m_config.recordProductionRateLimit)) {
             std::cout << "-- record generation too fast from the peer" << std::endl;
             return false;
         }
@@ -278,8 +285,8 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
 
     std::cout << "- Step 4: Check InterLock Policy" << std::endl;
     for (const auto &precedingRecordName : dataRecord.getPointersFromHeader()) {
-        std::cout << "-- Preceding record from " << RecordName(precedingRecordName).getProducerID() << '\n';
-        if (RecordName(precedingRecordName).getProducerID() == producerID) {
+        std::cout << "-- Preceding record from " << RecordName(precedingRecordName).getProducerPrefix() << '\n';
+        if (RecordName(precedingRecordName).getProducerPrefix() == producerID) {
             std::cout << "--- From itself" << '\n';
             return false;
         }
@@ -348,12 +355,12 @@ void
 LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 {
   std::cout << "[LedgerImpl::onLedgerSyncRequest] Receive SYNC Interest " << std::endl;
-  // @TODO when new Interest signature format is supported by ndn-cxx, we need to change the way to obtain signature info.
+  /*// @TODO when new Interest signature format is supported by ndn-cxx, we need to change the way to obtain signature info.
   SignatureInfo info(interest.getName().get(-2).blockFromValue());
   if (m_config.peerPrefix.isPrefixOf(info.getKeyLocator().getName())) {
     std::cout << "- A SYNC Interest sent by myself. Ignore" << std::endl;
     return;
-  }
+  }*/
 
   // verify the signature
   if (!m_config.certificateManager->verifySignature(interest)) {
@@ -579,7 +586,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     }
 
     //add record to tailing record
-    m_tailRecords[record.getRecordName()] = TailingRecordState{refVerified, std::set<std::string>(), verified};
+    m_tailRecords[record.getRecordName()] = TailingRecordState{refVerified, std::set<Name>(), verified};
     m_backend.putRecord(record.m_data);
 
     //update weight of the system
@@ -597,12 +604,12 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
         Record currentRecord(m_backend.getRecord(currentRecordName));
         auto precedingRecordList = currentRecord.getPointersFromHeader();
         for (const auto &precedingRecord : precedingRecordList) {
-            if (RecordName(precedingRecord).getProducerID() == record.getProducerID()) continue;
+            if (RecordName(precedingRecord).getProducerPrefix() == record.getProducerPrefix()) continue;
             if (m_tailRecords.count(precedingRecord) != 0 &&
-                m_tailRecords[precedingRecord].refSet.insert(record.getProducerID()).second) {
+                m_tailRecords[precedingRecord].refSet.insert(record.getProducerPrefix()).second) {
                 stack.push(precedingRecord);
                 updatedRecords.insert(precedingRecord);
-                std::cout << record.getProducerID() << " confirms " << precedingRecord.toUri() << std::endl;
+                std::cout << record.getProducerPrefix() << " confirms " << precedingRecord.toUri() << std::endl;
             }
         }
     }
@@ -655,8 +662,8 @@ void LedgerImpl::onRecordConfirmed(const Record &record){
     std::cout << "- [LedgerImpl::onRecordConfirmed] accept record" << std::endl;
 
     //register current time
-    if (m_rateCheck[record.getProducerID()] < record.getGenerationTimestamp())
-            m_rateCheck[record.getProducerID()] = record.getGenerationTimestamp();
+    if (m_rateCheck[record.getProducerPrefix()] < record.getGenerationTimestamp())
+            m_rateCheck[record.getProducerPrefix()] = record.getGenerationTimestamp();
 
     if (record.getType() == RecordType::CERTIFICATE_RECORD) {
         try {

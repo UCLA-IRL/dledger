@@ -6,15 +6,13 @@
 #include <utility>
 #include <ndn-cxx/security/verification-helpers.hpp>
 #include "default-cert-manager.h"
+#include "record_name.hpp"
 
 dledger::DefaultCertificateManager::DefaultCertificateManager(const Name &peerPrefix,
                                                               shared_ptr<security::Certificate> anchorCert,
                                                               const std::list<security::Certificate> &startingPeers)
         :
         m_peerPrefix(peerPrefix), m_anchorCert(std::move(anchorCert)) {
-    if (m_peerPrefix.size() != m_anchorCert->getIdentity().size()) {
-        BOOST_THROW_EXCEPTION(std::runtime_error("trust Anchor should follow the peer prefix format"));
-    }
     if (!m_anchorCert->isValid()) {
         BOOST_THROW_EXCEPTION(std::runtime_error("trust Anchor Expired"));
     }
@@ -25,7 +23,7 @@ dledger::DefaultCertificateManager::DefaultCertificateManager(const Name &peerPr
 }
 
 bool dledger::DefaultCertificateManager::verifySignature(const Data &data) const {
-    auto identity = data.getName().getPrefix(m_peerPrefix.size());
+    auto identity = RecordName(data.getName()).getProducerPrefix();
     auto iterator = m_peerCertificates.find(identity);
     if (iterator == m_peerCertificates.cend()) return false;
     for (const auto &cert : iterator->second) {
@@ -58,7 +56,7 @@ bool dledger::DefaultCertificateManager::verifyRecordFormat(const dledger::Recor
     } else if (record.getType() == RecordType::REVOCATION_RECORD) {
         try {
             auto revokeRecord = RevocationRecord(record);
-            bool isAnchor = readString(m_anchorCert->getIdentity().get(-1)) == revokeRecord.getProducerID();
+            bool isAnchor = m_anchorCert->getIdentity() == revokeRecord.getProducerPrefix();
             for (const auto &certName: revokeRecord.getRevokedCertificates()) {
                 if (!certName.get(-1).isImplicitSha256Digest() ||
                     !security::Certificate::isValidName(certName.getPrefix(-1))) {
@@ -66,7 +64,7 @@ bool dledger::DefaultCertificateManager::verifyRecordFormat(const dledger::Recor
                     return false;
                 }
                 if (!isAnchor &&
-                    readString(getCertificateNameIdentity(certName).get(-1)) != revokeRecord.getProducerID()) {
+                    getCertificateNameIdentity(certName) != revokeRecord.getProducerPrefix()) {
                     std::cout << "-- invalid revoked of other's certificate: " << certName << std::endl;
                     return false;
                 }
@@ -83,7 +81,7 @@ bool dledger::DefaultCertificateManager::verifyRecordFormat(const dledger::Recor
 }
 
 bool dledger::DefaultCertificateManager::endorseSignature(const Data &data) const {
-    auto identity = data.getName().getPrefix(m_peerPrefix.size());
+    auto identity = RecordName(data.getName()).getProducerPrefix();
     auto iterator = m_peerCertificates.find(identity);
     if (iterator == m_peerCertificates.cend()) return false;
     for (const auto &cert : iterator->second) {
@@ -138,7 +136,11 @@ void dledger::DefaultCertificateManager::acceptRecord(const dledger::Record &rec
 }
 
 Name dledger::DefaultCertificateManager::getCertificateNameIdentity(const Name &certificateName) const {
-    return certificateName.getPrefix(m_peerPrefix.size());
+    if (certificateName.get(-1).isImplicitSha256Digest())
+        return certificateName.getPrefix(-1)
+                .getPrefix(security::Certificate::KEY_COMPONENT_OFFSET); // remove another component from back
+    else
+        return certificateName.getPrefix(security::Certificate::KEY_COMPONENT_OFFSET);
 }
 
 bool dledger::DefaultCertificateManager::authorizedToGenerate() const {

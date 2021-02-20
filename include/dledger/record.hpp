@@ -108,12 +108,11 @@ public: // used for generating a new record before appending it into the DLedger
 
   /**
    * validate the pointers in a header.
-   * @param prefix application config according to the config
    * @param numPointers number of pointer according to the config
    * @note This function is supposed to be used by the DLedger class only
    */
   void
-  checkPointerValidity(const Name& prefix, int numPointers) const;
+  checkPointerCount(int numPointers) const;
 
   /**
    * Encode the record header and body into the block.
@@ -122,8 +121,8 @@ public: // used for generating a new record before appending it into the DLedger
   void
   wireEncode(Block& block) const;
 
-  std::string
-  getProducerID() const;
+  Name
+  getProducerPrefix() const;
 
   time::system_clock::TimePoint
   getGenerationTimestamp() const;

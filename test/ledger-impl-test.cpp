@@ -66,7 +66,7 @@ main(int argc, char** argv)
   security::KeyChain keychain;
   std::shared_ptr<Config> config = nullptr;
   try {
-    config = Config::CustomizedConfig("/dledger-multicast", "/dledger/" + idName,
+    config = Config::CustomizedConfig("/ndn/broadcast/dledger", "/dledger/" + idName,
             std::string("./dledger-anchor.cert"), std::string("/tmp/dledger-db/" + idName),
                                       startingPeerPath);
     mkdir("/tmp/dledger-db/", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -79,7 +79,7 @@ main(int argc, char** argv)
   shared_ptr<Ledger> ledger = std::move(Ledger::initLedger(*config, keychain, face));
 
   Scheduler scheduler(ioService);
-  periodicAddRecord(ledger, scheduler);
+  scheduler.schedule(time::seconds(2), [ledger, &scheduler]{periodicAddRecord(ledger, scheduler);});
 
   face.processEvents();
   return 0;
