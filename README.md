@@ -26,11 +26,11 @@ nfd-start
 ndnsec key-gen /dledger | ndnsec cert-gen -s /dledger - > dledger-anchor.cert 
 
 mkdir test-certs
-ndnsec key-gen /dledger/test-a | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-a.cert
-ndnsec key-gen /dledger/test-b | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-b.cert
-ndnsec key-gen /dledger/test-c | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-c.cert
-ndnsec key-gen /dledger/test-d | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-d.cert
-ndnsec key-gen /dledger/test-e | ndnsec cert-gen -s /dledger/test-anchor - > test-certs/test-e.cert
+ndnsec key-gen /dledger/test-a | ndnsec cert-gen -s /dledger - > test-certs/test-a.cert
+ndnsec key-gen /dledger/test-b | ndnsec cert-gen -s /dledger - > test-certs/test-b.cert
+ndnsec key-gen /dledger/test-c | ndnsec cert-gen -s /dledger - > test-certs/test-c.cert
+ndnsec key-gen /dledger/test-d | ndnsec cert-gen -s /dledger - > test-certs/test-d.cert
+ndnsec key-gen /dledger/test-e | ndnsec cert-gen -s /dledger - > test-certs/test-e.cert
 
 
 # run each of the following as a peer

@@ -83,7 +83,7 @@ private:
    * @param record
    */
   void
-  addToTailingRecord(const Record& record, bool verified);
+  addToTailingRecord(const Record& record, bool endorseVerified);
 
   //Siqi's temp function
   struct TailingRecordState{

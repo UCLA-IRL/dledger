@@ -103,41 +103,28 @@ LedgerImpl::createRecord(Record& record)
       }
   }
 
-  std::vector<Name> recordPeerList;
-  std::map<Name, std::vector<RecordName>> recordList;
-  int recordCount = 0;
+  std::vector<std::pair<Name, int>> recordList;
   for (const auto &item : m_tailRecords) {
-      if (item.second.refSet.size() <= m_config.appendWeight &&
-            m_config.peerPrefix != RecordName(item.first).getProducerPrefix() &&
-            item.second.referenceVerified) {
-          auto rName = RecordName(item.first);
-          recordList[rName.getProducerPrefix()].emplace_back(rName);
-          recordPeerList.emplace_back(rName.getProducerPrefix());
-          recordCount ++;
-      }
-  }
-
-  // randomly shuffle the tailing record list
-  std::shuffle(recordPeerList.begin(), recordPeerList.end(), m_randomEngine);
-  for (auto& item: recordList) {
-      std::shuffle(item.second.begin(), item.second.end(), m_randomEngine);
+    if (item.second.refSet.size() <= m_config.appendWeight &&
+        !m_config.peerPrefix.isPrefixOf(item.first) &&
+        item.second.referenceVerified) {
+      recordList.emplace_back(item.first, item.second.refSet.size());
+    }
   }
 
   // fulfill the record content with preceding record IDs
   // removal of preceding record is done by addToTailingRecord() at the end
-  if (recordCount < m_config.precedingRecordNum) {
-      return ReturnCode::notEnoughTailingRecord();
+  if (recordList.size() < m_config.precedingRecordNum) {
+    return ReturnCode::notEnoughTailingRecord();
   }
-  while (record.getPointersFromHeader().size() < m_config.precedingRecordNum) {
-      for (const auto &tailRecordPeer : recordPeerList) {
-          auto& list = recordList.at(tailRecordPeer);
-          if (list.empty()) continue;
-          record.addPointer(*list.begin());
-          list.erase(list.begin());
-          recordCount --;
-          if (record.getPointersFromHeader().size() >= m_config.precedingRecordNum)
-              break;
-      }
+
+  // randomly shuffle the tailing record list
+  std::shuffle(std::begin(recordList), std::end(recordList), m_randomEngine);
+
+  for (const auto &tailRecord : recordList) {
+    record.addPointer(tailRecord.first);
+    if (record.getPointersFromHeader().size() >= m_config.precedingRecordNum)
+      break;
   }
 
   Name dataName = RecordName::generateRecordName(m_config, record);
@@ -566,7 +553,7 @@ bool LedgerImpl::checkRecordAncestor(const Record &record) {
 }
 
 void
-LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
+LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
     if (m_tailRecords.count(record.getRecordName()) != 0) {
         std::cout << "[LedgerImpl::addToTailingRecord] Repeated add record: " << record.getRecordName()
                   << std::endl;
@@ -574,8 +561,8 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     }
 
     //verify if ancestor has correct reference policy
-    bool refVerified = verified;
-    if (verified) {
+    bool refVerified = endorseVerified;
+    if (endorseVerified) {
         for (const auto &precedingRecord : record.getPointersFromHeader()) {
             if (m_tailRecords.count(precedingRecord) != 0 &&
                 !m_tailRecords[precedingRecord].referenceVerified) {
@@ -586,7 +573,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     }
 
     //add record to tailing record
-    m_tailRecords[record.getRecordName()] = TailingRecordState{refVerified, std::set<Name>(), verified};
+    m_tailRecords[record.getRecordName()] = TailingRecordState{refVerified, std::set<Name>(), endorseVerified};
     m_backend.putRecord(record.m_data);
 
     //update weight of the system
@@ -594,7 +581,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool verified) {
     std::set<Name> updatedRecords;
 
     //only count the weight if the record is valid for all policies
-    if (verified) {
+    if (endorseVerified) {
         stack.push(record.getRecordName());
     }
     while (!stack.empty()) {
