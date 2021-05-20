@@ -160,19 +160,7 @@ LedgerImpl::getRecord(const std::string& recordName) const
 {
   std::cout << "getRecord Called \n";
   Name rName = recordName;
-  if (m_tailRecords.count(rName)) {
-    if (!m_tailRecords.find(rName)->second.referenceVerified) {
-      return nullopt;
-    }
-    return m_tailRecords.find(rName)->second.record;
-  }
-  auto dataPtr = m_backend.getRecord(rName);
-  if (dataPtr != nullptr) {
-    return Record(dataPtr);
-  }
-  else {
-    return nullopt;
-  }
+  return getRecord(rName);
 }
 
 bool
@@ -195,6 +183,35 @@ LedgerImpl::listRecord(const std::string& prefix) const
     list.remove_if([&](const auto& name) {return m_tailRecords.count(name) && !m_tailRecords.find(name)->second.referenceVerified;});
     return list;
 }
+
+optional<Record>
+LedgerImpl::getRecord(const Name& rName) const
+{
+  if (m_tailRecords.count(rName)) {
+    if (!m_tailRecords.find(rName)->second.referenceVerified) {
+      return nullopt;
+    }
+    return m_tailRecords.find(rName)->second.record;
+  }
+  auto dataPtr = m_backend.getRecord(rName);
+  if (dataPtr != nullptr) {
+    return Record(dataPtr);
+  }
+  else {
+    return nullopt;
+  }
+}
+
+bool
+LedgerImpl::seenRecord(const Name& recordName) const
+{
+  if (m_tailRecords.count(recordName)) {
+    return true;
+  }
+  auto dataPtr = m_backend.getRecord(Name(recordName));
+  return dataPtr != nullptr;
+}
+
 
 void
 LedgerImpl::onNack(const Interest&, const lp::Nack& nack)
@@ -382,7 +399,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
             if (certName.getRecordType() != CERTIFICATE_RECORD) {
                 BOOST_THROW_EXCEPTION(std::runtime_error(""));
             }
-            if (!m_backend.getRecord(certName)) {
+            if (!seenRecord(certName)) {
                 std::cout << "--- Fetch unseen certificate record "<< l.getName() << std::endl;
                 fetchRecord(certName);
                 isCertPending = true;
@@ -398,7 +415,7 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
     if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName].refSet.empty()) {
       std::cout << "--- This record is already in our tailing records \n";
     }
-    else if (m_backend.getRecord(recordName)) {
+    else if (seenRecord(recordName)) {
       std::cout << "--- This record is already in our Ledger but not tailing any more \n";
       shouldSendSync = true;
     }
@@ -421,10 +438,10 @@ void
 LedgerImpl::onRecordRequest(const Interest& interest)
 {
   std::cout << "[LedgerImpl::onRecordRequest] Receive Interest to Fetch Record" << std::endl;
-  auto desiredData = m_backend.getRecord(interest.getName().toUri());
+  auto desiredData = getRecord(interest.getName());
   if (desiredData) {
     std::cout << "- Found desired Data, reply it." << std::endl;
-    m_network.put(*desiredData);
+    m_network.put(*desiredData->m_data);
   }
 }
 
@@ -475,7 +492,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       auto precedingRecordNames = record.getPointersFromHeader();
       bool allPrecedingRecordsInLedger = true;
       for (const auto &precedingRecordName : precedingRecordNames) {
-          if (m_backend.getRecord(precedingRecordName)) {
+          if (seenRecord(precedingRecordName)) {
               std::cout << "- Preceding Record " << precedingRecordName << " already in the ledger" << std::endl;
           } else {
               allPrecedingRecordsInLedger = false;
@@ -487,7 +504,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
           CertificateRecord certRecord(record);
           for (const auto &prevCertName : certRecord.getPrevCertificates()) {
               if (prevCertName.empty()) continue;
-              if (m_backend.getRecord(prevCertName)) {
+              if (seenRecord(prevCertName)) {
                   std::cout << "- Preceding Cert Record " << prevCertName << " already in the ledger" << std::endl;
               } else {
                   std::cout << "- Preceding Cert Record " << prevCertName << " unseen" << std::endl;
@@ -546,7 +563,7 @@ LedgerImpl::checkRecordAncestor(const Record &record) {
     if (record.getType() == CERTIFICATE_RECORD) {
         CertificateRecord certRecord(record);
         for (const auto &prevCertName : certRecord.getPrevCertificates()) {
-            if (!prevCertName.empty() && !m_backend.getRecord(prevCertName)) {
+            if (!prevCertName.empty() && !seenRecord(prevCertName)) {
                 readyToAdd = false;
             }
         }
@@ -600,7 +617,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
         RecordName currentRecordName(stack.top());
         stack.pop();
         if (currentRecordName.getRecordType() == GENESIS_RECORD) continue;
-        Record currentRecord(m_backend.getRecord(currentRecordName));
+        Record currentRecord = *getRecord(currentRecordName);
         auto precedingRecordList = currentRecord.getPointersFromHeader();
         for (const auto &precedingRecord : precedingRecordList) {
             if (RecordName(precedingRecord).getProducerPrefix() == record.getProducerPrefix()) continue;
@@ -624,7 +641,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
                 tailingState.referenceVerified = true;
                 referenceNeedUpdate = true;
             }
-            onRecordConfirmed(m_backend.getRecord(updatedRecord));
+            onRecordConfirmed(*getRecord(updatedRecord));
         }
         if (tailingState.refSet.size() >= removeWeight) {
             m_tailRecords.erase(updatedRecord);
@@ -637,7 +654,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
         for (auto &r : m_tailRecords) {
             if (!r.second.referenceVerified && r.second.endorseVerified) {
                 bool referenceVerified = true;
-                Record currentRecord(m_backend.getRecord(r.first));
+                Record currentRecord(*getRecord(r.first));
                 for (const auto &precedingRecord : currentRecord.getPointersFromHeader()) {
                     if ((m_tailRecords.count(precedingRecord) &&
                             m_tailRecords[precedingRecord].refSet.size() < m_config.confirmWeight) &&

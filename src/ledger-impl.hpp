@@ -39,6 +39,12 @@ public:
   listRecord(const std::string& prefix) const override;
 
 private:
+  optional<Record>
+  getRecord(const Name& recordName) const;
+
+  bool
+  seenRecord(const Name& recordName) const;
+
   void
   onNack(const Interest&, const lp::Nack& nack);
 
