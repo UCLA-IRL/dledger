@@ -160,8 +160,11 @@ LedgerImpl::getRecord(const std::string& recordName) const
 {
   std::cout << "getRecord Called \n";
   Name rName = recordName;
-  if (m_tailRecords.count(rName) && !m_tailRecords.find(rName)->second.referenceVerified) {
+  if (m_tailRecords.count(rName)) {
+    if (!m_tailRecords.find(rName)->second.referenceVerified) {
       return nullopt;
+    }
+    return m_tailRecords.find(rName)->second.record;
   }
   auto dataPtr = m_backend.getRecord(rName);
   if (dataPtr != nullptr) {
@@ -175,6 +178,12 @@ LedgerImpl::getRecord(const std::string& recordName) const
 bool
 LedgerImpl::hasRecord(const std::string& recordName) const
 {
+  if (m_tailRecords.count(recordName)) {
+    if (!m_tailRecords.find(recordName)->second.referenceVerified) {
+      return false;
+    }
+    return true;
+  }
   auto dataPtr = m_backend.getRecord(Name(recordName));
   return dataPtr != nullptr;
 }
@@ -199,7 +208,8 @@ LedgerImpl::onTimeout(const Interest& interest)
   std::cout << "Timeout for " << interest << std::endl;
 }
 
-ReturnCode LedgerImpl::sendSyncInterest() {
+ReturnCode
+LedgerImpl::sendSyncInterest() {
     std::cout << "[LedgerImpl::sendSyncInterest] Send SYNC Interest.\n";
     // SYNC Interest Name: /<multicastPrefix>/SYNC/digest
     // construct SYNC Interest
@@ -293,7 +303,8 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
     return true;
 }
 
-bool LedgerImpl::checkEndorseValidityOfRecord(const Data& data) {
+bool
+LedgerImpl::checkEndorseValidityOfRecord(const Data& data) {
     std::cout << "[LedgerImpl::checkEndorseValidityOfRecord] Check the reference validity of the record" << std::endl;
     Record dataRecord;
     try {
@@ -516,7 +527,8 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
   }
 }
 
-bool LedgerImpl::checkRecordAncestor(const Record &record) {
+bool
+LedgerImpl::checkRecordAncestor(const Record &record) {
     bool readyToAdd = true;
     bool badRecord = false;
     for (const auto& precedingRecordName : record.getPointersFromHeader()) {
@@ -573,8 +585,8 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
     }
 
     //add record to tailing record
-    m_tailRecords[record.getRecordName()] = TailingRecordState{refVerified, std::set<Name>(), endorseVerified};
-    m_backend.putRecord(record.m_data);
+    m_tailRecords[record.getRecordName()] = TailingRecordState{refVerified, std::set<Name>(), endorseVerified,
+                                                               record, time::system_clock::now()};
 
     //update weight of the system
     std::stack<Name> stack;
@@ -607,7 +619,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
     for (const auto & updatedRecord : updatedRecords) {
         auto& tailingState = m_tailRecords[updatedRecord];
         if (tailingState.refSet.size() == m_config.confirmWeight) {
-            std::cout << "confirmed " << updatedRecord.toUri() << std::endl;
+            std::cout << updatedRecord.toUri()  << "is confirmed" << std::endl;
             if (!tailingState.referenceVerified) {
                 tailingState.referenceVerified = true;
                 referenceNeedUpdate = true;
@@ -645,12 +657,16 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
     dumpList(m_tailRecords);
 }
 
-void LedgerImpl::onRecordConfirmed(const Record &record){
+void
+LedgerImpl::onRecordConfirmed(const Record &record){
     std::cout << "- [LedgerImpl::onRecordConfirmed] accept record" << std::endl;
 
     //register current time
     if (m_rateCheck[record.getProducerPrefix()] < record.getGenerationTimestamp())
             m_rateCheck[record.getProducerPrefix()] = record.getGenerationTimestamp();
+
+    //add to backend database
+    m_backend.putRecord(record.m_data);
 
     if (record.getType() == RecordType::CERTIFICATE_RECORD) {
         try {

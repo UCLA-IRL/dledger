@@ -65,6 +65,11 @@ public:
    * The maximum clock skew allowed for other peer.
    */
   time::milliseconds clockSkewTolerance = time::milliseconds(60000);
+
+  /**
+   * The maximum time a record can stay unconfirmed
+   */
+   time::milliseconds blockConfirmationTimeout = time::seconds(60);
   /**
    * The multicast prefix, under which an Interest can reach to all the peers in the same multicast group.
    */

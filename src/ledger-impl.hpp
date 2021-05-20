@@ -90,6 +90,8 @@ private:
       bool referenceVerified;
       std::set<Name> refSet;
       bool endorseVerified;
+      Record record;
+      time::system_clock::TimePoint addedTime;
   };
   static void dumpList(const std::map<Name, TailingRecordState>& weight);
 
