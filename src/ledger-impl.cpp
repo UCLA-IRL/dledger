@@ -7,8 +7,12 @@
 #include <utility>
 #include <ndn-cxx/security/verification-helpers.hpp>
 #include <ndn-cxx/util/time.hpp>
+#include <ndn-cxx/util/logger.hpp>
+#include <ndn-cxx/util/logging.hpp>
 #include <random>
 #include <sstream>
+
+NDN_LOG_INIT(dledger.impl);
 
 using namespace ndn;
 namespace dledger {
@@ -20,11 +24,10 @@ int max(int a, int b) {
 void
 LedgerImpl::dumpList(const std::map<Name, TailingRecordState>& weight)
 {
-    std::cout << "Dump " << weight.size() << " Tailing Records" << std::endl;
+    NDN_LOG_TRACE("Dump " << weight.size() << " Tailing Records");
   for (const auto& item : weight) {
-    std::cout << (item.second.referenceVerified ? "OK " : "NO ") << item.second.refSet.size() << "\t" << item.first.toUri() << std::endl;
+    NDN_LOG_TRACE((item.second.referenceVerified ? "OK " : "NO ") << item.second.refSet.size() << "\t" << item.first.toUri());
   }
-  std::cout << std::endl << std::endl;
 }
 
 LedgerImpl::LedgerImpl(const Config& config,
@@ -37,12 +40,12 @@ LedgerImpl::LedgerImpl(const Config& config,
     , m_scheduler(network.getIoService())
     , m_backend(config.databasePath)
 {
-  std::cout << "\nDLedger Initialization Start" << std::endl;
+  NDN_LOG_INFO("DLedger Initialization Start");
 
   //****STEP 0****
   //check validity of config
   if (m_config.appendWeight > m_config.contributionWeight) {
-    std::cerr << "invalid weight configuration" << std::endl;
+    NDN_LOG_ERROR("invalid weight configuration");
     BOOST_THROW_EXCEPTION(std::runtime_error("invalid weight configuration"));
   }
 
@@ -52,10 +55,10 @@ LedgerImpl::LedgerImpl(const Config& config,
   syncName.append("SYNC");
   m_network.setInterestFilter(m_config.peerPrefix, bind(&LedgerImpl::onRecordRequest, this, _2), nullptr, nullptr);
   m_network.setInterestFilter(syncName, bind(&LedgerImpl::onLedgerSyncRequest, this, _2), nullptr, nullptr);
-  std::cout << "STEP 1" << std::endl
+  NDN_LOG_INFO("STEP 1" << std::endl
             << "- Prefixes " << m_config.peerPrefix.toUri() << ","
             << syncName.toUri()
-            << " have been registered." << std::endl;
+            << " have been registered.");
 
   //****STEP 2****
   // Make the genesis data
@@ -70,9 +73,9 @@ LedgerImpl::LedgerImpl(const Config& config,
     genesisRecord.m_data = data;
     addToTailingRecord(genesisRecord, true);
   }
-  std::cout << "STEP 2" << std::endl
-            << "- " << m_config.numGenesisBlock << " genesis records have been added to the DLedger" << std::endl
-            << "DLedger Initialization Succeed\n\n";
+  NDN_LOG_INFO("STEP 2" << std::endl
+            << "- " << m_config.numGenesisBlock << " genesis records have been added to the DLedger");
+  NDN_LOG_INFO("DLedger Initialization Succeed");
 
   this->sendSyncInterest();
 }
@@ -85,7 +88,7 @@ LedgerImpl::~LedgerImpl()
 ReturnCode
 LedgerImpl::createRecord(Record& record)
 {
-  std::cout << "[LedgerImpl::addRecord] Add new record" << std::endl;
+  NDN_LOG_INFO("[LedgerImpl::addRecord] Add new record");
   if (m_tailRecords.empty()) {
     return ReturnCode::noTailingRecord();
   }
@@ -98,7 +101,7 @@ LedgerImpl::createRecord(Record& record)
 
   if (record.getType() == CERTIFICATE_RECORD) {
       for (const auto& certName: m_lastCertRecords) {
-          std::cout << "-- Certificate record: Add previous cert record: " << certName << std::endl;
+          NDN_LOG_INFO("[LedgerImpl::addRecord] Certificate record: Add previous cert record: " << certName);
           record.addRecordItem(KeyLocator(certName).wireEncode());
       }
   }
@@ -142,8 +145,7 @@ LedgerImpl::createRecord(Record& record)
     return ReturnCode::signingError(e.what());
   }
   record.m_data = data;
-  std::cout << "- Finished the generation of the new record:" << std::endl
-            << "Name: " << data->getFullName().toUri() << std::endl;
+  NDN_LOG_INFO("[LedgerImpl::addRecord] Added a new record:" << data->getFullName().toUri());
 
   // add new record into the ledger
   addToTailingRecord(record, true);
@@ -158,7 +160,7 @@ LedgerImpl::createRecord(Record& record)
 optional<Record>
 LedgerImpl::getRecord(const std::string& recordName) const
 {
-  std::cout << "getRecord Called \n";
+  NDN_LOG_DEBUG("getRecord Called");
   Name rName = recordName;
   return getRecord(rName);
 }
@@ -216,18 +218,18 @@ LedgerImpl::seenRecord(const Name& recordName) const
 void
 LedgerImpl::onNack(const Interest&, const lp::Nack& nack)
 {
-  std::cout << "Received Nack with reason " << nack.getReason() << std::endl;
+  NDN_LOG_ERROR("Received Nack with reason " << nack.getReason());
 }
 
 void
 LedgerImpl::onTimeout(const Interest& interest)
 {
-  std::cout << "Timeout for " << interest << std::endl;
+  NDN_LOG_ERROR("Timeout for " << interest);
 }
 
 ReturnCode
 LedgerImpl::sendSyncInterest() {
-    std::cout << "[LedgerImpl::sendSyncInterest] Send SYNC Interest.\n";
+    NDN_LOG_INFO("[LedgerImpl::sendSyncInterest] Send SYNC Interest.");
     // SYNC Interest Name: /<multicastPrefix>/SYNC/digest
     // construct SYNC Interest
     Name syncInterestName = m_config.multicastPrefix;
@@ -263,132 +265,124 @@ LedgerImpl::sendSyncInterest() {
 
 bool
 LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
-    std::cout << "[LedgerImpl::checkSyntaxValidityOfRecord] Check the format validity of the record" << std::endl;
-    std::cout << "- Step 1: Check whether it is a valid record following DLedger record spec" << std::endl;
+    NDN_LOG_INFO("[LedgerImpl::checkSyntaxValidityOfRecord] Check the format validity of the record");
+    NDN_LOG_TRACE("- Step 1: Check whether it is a valid record following DLedger record spec");
     Record dataRecord;
     try {
         // format check
         dataRecord = Record(data);
         dataRecord.checkPointerCount(m_config.precedingRecordNum);
     } catch (const std::exception &e) {
-        std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
+        NDN_LOG_ERROR("[LedgerImpl::checkSyntaxValidityOfRecord] The Data format is not proper for DLedger record " << dataRecord.getRecordName() << " because " << e.what());
         return false;
     }
 
-    std::cout << "- Step 2: Check signature" << std::endl;
+    NDN_LOG_TRACE("- Step 2: Check signature");
     Name producerID = dataRecord.getProducerPrefix();
     if (!m_config.certificateManager->verifySignature(data)) {
-        std::cout << "-- Bad Signature." << std::endl;
+        NDN_LOG_ERROR("[LedgerImpl::checkSyntaxValidityOfRecord] Bad Signature for " << dataRecord.getRecordName());
         return false;
     }
 
-    std::cout << "- Step 3: Check rating limit" << std::endl;
+    NDN_LOG_TRACE("- Step 3: Check rating limit");
     auto tp = dataRecord.getGenerationTimestamp();
     if (tp > time::system_clock::now() + m_config.clockSkewTolerance) {
-        std::cout << "-- record from too far in the future" << std::endl;
+        NDN_LOG_ERROR("[LedgerImpl::checkSyntaxValidityOfRecord] record from too far in the future" << dataRecord.getRecordName());
         return false;
     }
     if (m_rateCheck.find(producerID) == m_rateCheck.end()) {
         m_rateCheck[producerID] = tp;
     } else {
         if ((time::abs(tp - m_rateCheck.at(producerID)) < m_config.recordProductionRateLimit)) {
-            std::cout << "-- record generation too fast from the peer" << std::endl;
+            NDN_LOG_ERROR("[LedgerImpl::checkSyntaxValidityOfRecord] record generation too fast from the peer" << dataRecord.getRecordName());
             return false;
         }
     }
 
-    std::cout << "- Step 4: Check InterLock Policy" << std::endl;
+    NDN_LOG_TRACE("- Step 4: Check InterLock Policy");
     for (const auto &precedingRecordName : dataRecord.getPointersFromHeader()) {
-        std::cout << "-- Preceding record from " << RecordName(precedingRecordName).getProducerPrefix() << '\n';
+        NDN_LOG_TRACE("-- Preceding record from " << RecordName(precedingRecordName).getProducerPrefix());
         if (RecordName(precedingRecordName).getProducerPrefix() == producerID) {
-            std::cout << "--- From itself" << '\n';
+            NDN_LOG_ERROR("[LedgerImpl::checkSyntaxValidityOfRecord] Preceding record From itself: " << dataRecord.getRecordName());
             return false;
         }
     }
 
-    std::cout << "- Step 5: Check certificate/revocation record format" << std::endl;
+    NDN_LOG_TRACE("- Step 5: Check certificate/revocation record format");
     if (dataRecord.getType() == CERTIFICATE_RECORD || dataRecord.getType() == REVOCATION_RECORD) {
         if (!m_config.certificateManager->verifyRecordFormat(dataRecord)) {
-            std::cout << "-- bad certificate/revocation record" << std::endl;
+            NDN_LOG_ERROR("[LedgerImpl::checkSyntaxValidityOfRecord] bad certificate/revocation record: " << dataRecord.getRecordName());
             return false;
         }
     } else {
-        std::cout << "-- Not a certificate/revocation record" << std::endl;
+      NDN_LOG_TRACE("-- Not a certificate/revocation record");
     }
 
-    std::cout << "- All Syntax check Steps finished. Good Record" << std::endl;
+    NDN_LOG_INFO("- All Syntax check Steps finished. Good Record");
     return true;
 }
 
 bool
 LedgerImpl::checkEndorseValidityOfRecord(const Data& data) {
-    std::cout << "[LedgerImpl::checkEndorseValidityOfRecord] Check the reference validity of the record" << std::endl;
+    NDN_LOG_INFO("[LedgerImpl::checkEndorseValidityOfRecord] Check the reference validity of the record");
     Record dataRecord;
     try {
         // format check
         dataRecord = Record(data);
     } catch (const std::exception& e) {
-        std::cout << "-- The Data format is not proper for DLedger record because " << e.what() << std::endl;
+        NDN_LOG_INFO("-- The Data format is not proper for DLedger record because " << e.what());
         return false;
     }
 
-    std::cout << "- Step 6: Check Revocation" << std::endl;
+    NDN_LOG_TRACE("- Step 6: Check Revocation");
     if (!m_config.certificateManager->endorseSignature(data)) {
-        std::cout << "-- certificate revoked" << std::endl;
+        NDN_LOG_INFO("[LedgerImpl::checkEndorseValidityOfRecord] certificate revoked for " << dataRecord.getRecordName());
         return false;
     }
 
-    std::cout << "- Step 7: Check Contribution Policy" << std::endl;
+    NDN_LOG_TRACE("- Step 7: Check Contribution Policy");
     for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
         if (m_tailRecords.count(precedingRecordName) != 0) {
-            std::cout << "-- Preceding record has weight " << m_tailRecords[precedingRecordName].refSet.size() << '\n';
+            NDN_LOG_TRACE("-- Preceding record " << precedingRecordName << " has weight " << m_tailRecords[precedingRecordName].refSet.size());
             if (m_tailRecords[precedingRecordName].refSet.size() > m_config.contributionWeight) {
-                std::cout << "--- Weight too high " << m_tailRecords[precedingRecordName].refSet.size() << '\n';
+                NDN_LOG_WARN("[LedgerImpl::checkEndorseValidityOfRecord] Weight too high for " << dataRecord.getRecordName() << " with weight " << m_tailRecords[precedingRecordName].refSet.size());
                 return false;
             }
         } else {
             if (m_backend.getRecord(precedingRecordName) != nullptr) {
-                std::cout << "-- Preceding record too deep" << '\n';
+                NDN_LOG_WARN("[LedgerImpl::checkEndorseValidityOfRecord] Preceding record " << precedingRecordName << " too deep");
             } else {
-                std::cout << "-- Preceding record Not found" << '\n';
+                NDN_LOG_WARN("[LedgerImpl::checkEndorseValidityOfRecord] Preceding record " << precedingRecordName << " Not found");
             }
             return false;
         }
     }
 
-    std::cout << "- Step 8: Check App Logic" << std::endl;
+    NDN_LOG_TRACE("- Step 8: Check App Logic");
     if (m_onRecordAppCheck != nullptr && !m_onRecordAppCheck(data)) {
-        std::cout << "-- App Logic check failed" << std::endl;
+        NDN_LOG_ERROR("-- App Logic check failed");
         return false;
     }
 
-    std::cout << "- All Reference Check Steps finished. Good Record" << std::endl;
+    NDN_LOG_INFO("- All Reference Check Steps finished. Good Record");
     return true;
 }
 
 void
 LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 {
-  std::cout << "[LedgerImpl::onLedgerSyncRequest] Receive SYNC Interest " << std::endl;
-  /*// @TODO when new Interest signature format is supported by ndn-cxx, we need to change the way to obtain signature info.
-  SignatureInfo info(interest.getName().get(-2).blockFromValue());
-  if (m_config.peerPrefix.isPrefixOf(info.getKeyLocator().getName())) {
-    std::cout << "- A SYNC Interest sent by myself. Ignore" << std::endl;
-    return;
-  }*/
-
   // verify the signature
   if (!m_config.certificateManager->verifySignature(interest)) {
-      std::cout << "- Bad Signature. " << std::endl;
+      NDN_LOG_ERROR("[LedgerImpl::onLedgerSyncRequest] Bad SYNC Signature: " << interest.getName());
       return;
   }
+  NDN_LOG_INFO("[LedgerImpl::onLedgerSyncRequest] Receive SYNC Interest");
 
   //cancel previous reply
   if (m_replySyncEventID) m_replySyncEventID.cancel();
 
   const auto& appParam = interest.getApplicationParameters();
   appParam.parse();
-  std::cout << "- Received Tailing Record Names: \n";
   bool shouldSendSync = false;
   bool isCertPending = false;
   for (const auto& item : appParam.elements()) {
@@ -400,33 +394,32 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
                 BOOST_THROW_EXCEPTION(std::runtime_error(""));
             }
             if (!seenRecord(certName)) {
-                std::cout << "--- Fetch unseen certificate record "<< l.getName() << std::endl;
+                NDN_LOG_INFO("[LedgerImpl::onLedgerSyncRequest] Fetch unseen certificate record "<< l.getName());
                 fetchRecord(certName);
                 isCertPending = true;
             }
         } catch (const std::exception& e) {
-            std::cout << "--- Error on keyLocator \n";
+            NDN_LOG_ERROR("[LedgerImpl::onLedgerSyncRequest] Error on keyLocator");
         }
         continue;
     }
     if (isCertPending) continue;
     Name recordName(item);
-    std::cout << "-- " << recordName.toUri() << "\n";
     if (m_tailRecords.count(recordName) != 0 && m_tailRecords[recordName].refSet.empty()) {
-      std::cout << "--- This record is already in our tailing records \n";
+      NDN_LOG_TRACE("--- " << recordName.toUri() << " is already in our tailing records");
     }
     else if (seenRecord(recordName)) {
-      std::cout << "--- This record is already in our Ledger but not tailing any more \n";
+      NDN_LOG_TRACE("--- " << recordName.toUri() << " is already in our Ledger but not tailing any more");
       shouldSendSync = true;
     }
     else {
-        std::cout << "--- Fetch unseen tailing record \n";
+        NDN_LOG_TRACE("--- " << recordName.toUri() << "is unseen. Fetch");
         //fetch record
         fetchRecord(recordName);
     }
   }
   if (shouldSendSync) {
-      std::cout << "[LedgerImpl::onLedgerSyncRequest] send Sync interest so others can fetch new record\n";
+      NDN_LOG_INFO("[LedgerImpl::onLedgerSyncRequest] send Sync interest so others can fetch new record");
       std::uniform_int_distribution<> dist{10, 200};
       m_replySyncEventID = m_scheduler.schedule(time::milliseconds(dist(m_randomEngine)), [&] {
           sendSyncInterest();
@@ -437,22 +430,22 @@ LedgerImpl::onLedgerSyncRequest(const Interest& interest)
 void
 LedgerImpl::onRecordRequest(const Interest& interest)
 {
-  std::cout << "[LedgerImpl::onRecordRequest] Receive Interest to Fetch Record" << std::endl;
   auto desiredData = getRecord(interest.getName());
   if (desiredData) {
-    std::cout << "- Found desired Data, reply it." << std::endl;
+    NDN_LOG_INFO("[LedgerImpl::onRecordRequest] Reply Data: " << interest.getName());
     m_network.put(*desiredData->m_data);
+  } else {
+    NDN_LOG_ERROR("[LedgerImpl::onRecordRequest] Data not Found: " << interest.getName());
   }
 }
 
 void
 LedgerImpl::fetchRecord(const Name& recordName)
 {
-  std::cout << "[LedgerImpl::fetchRecord] Fetch the missing record" << std::endl;
   Interest interestForRecord(recordName);
   interestForRecord.setCanBePrefix(false);
   interestForRecord.setMustBeFresh(true);
-  std::cout << "- Sending Record Fetching Interest " << interestForRecord.getName().toUri() << std::endl;
+  NDN_LOG_INFO("[LedgerImpl::fetchRecord] Fetch the record: " << interestForRecord.getName().toUri());
   m_network.expressInterest(interestForRecord,
                             bind(&LedgerImpl::onFetchedRecord, this, _1, _2),
                             bind(&LedgerImpl::onNack, this, _1, _2),
@@ -462,21 +455,21 @@ LedgerImpl::fetchRecord(const Name& recordName)
 void
 LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
 {
-  std::cout << "[LedgerImpl::onFetchedRecordForSync] fetched record " << data.getFullName().toUri() << std::endl;
-  if (hasRecord(data.getFullName().toUri())) {
-    std::cout << "- Record already exists in the ledger. Ignore" << std::endl;
+  if (seenRecord(data.getFullName())) {
+    NDN_LOG_INFO("[LedgerImpl::onFetchedRecord] Record already exists in the ledger. Ignore " << data.getFullName());
     return;
   }
   if (m_badRecords.count(data.getFullName()) != 0) {
-      std::cout << "- Known bad record. Ignore" << std::endl;
+      NDN_LOG_INFO("[LedgerImpl::onFetchedRecord] Known bad record. Ignore " << data.getFullName());
       return;
   }
   for (const auto& stackRecord : m_syncStack) {
       if (stackRecord.first.getRecordName() == data.getFullName()) {
-          std::cout << "- Record in sync stack already. Ignore" << std::endl;
+          NDN_LOG_INFO("[LedgerImpl::onFetchedRecord] Record in sync stack already. Ignore " << data.getFullName());
           return;
       }
   }
+  NDN_LOG_INFO("[LedgerImpl::onFetchedRecord] fetched new record " << data.getFullName());
 
   try {
       Record record(data);
@@ -493,21 +486,21 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       bool allPrecedingRecordsInLedger = true;
       for (const auto &precedingRecordName : precedingRecordNames) {
           if (seenRecord(precedingRecordName)) {
-              std::cout << "- Preceding Record " << precedingRecordName << " already in the ledger" << std::endl;
+              NDN_LOG_TRACE("- Preceding Record " << precedingRecordName << " already in the ledger");
           } else {
               allPrecedingRecordsInLedger = false;
               fetchRecord(precedingRecordName);
           }
       }
       if (record.getType() == CERTIFICATE_RECORD) {
-          std::cout << "- Checking previous cert record" << std::endl;
+          NDN_LOG_INFO("- Checking previous cert record");
           CertificateRecord certRecord(record);
           for (const auto &prevCertName : certRecord.getPrevCertificates()) {
               if (prevCertName.empty()) continue;
               if (seenRecord(prevCertName)) {
-                  std::cout << "- Preceding Cert Record " << prevCertName << " already in the ledger" << std::endl;
+                  NDN_LOG_TRACE("- Preceding Cert Record " << prevCertName << " already in the ledger");
               } else {
-                  std::cout << "- Preceding Cert Record " << prevCertName << " unseen" << std::endl;
+                  NDN_LOG_TRACE("- Preceding Cert Record " << prevCertName << " unseen");
                   allPrecedingRecordsInLedger = false;
                   fetchRecord(prevCertName);
               }
@@ -515,13 +508,12 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
       }
 
       if (!allPrecedingRecordsInLedger) {
-          std::cout << "- Waiting for record to be added" << std::endl;
+          NDN_LOG_INFO("- Waiting for record to be added");
           return;
       }
 
   } catch (const std::exception& e) {
-      std::cout << "- The Data format is not proper for DLedger record because " << e.what() << std::endl;
-      std::cout << "--" << data.getFullName() << std::endl;
+      NDN_LOG_ERROR("- The Data format of " << data.getFullName() << " is not proper for DLedger record because " << e.what());
       m_badRecords.insert(data.getFullName());
       return;
   }
@@ -529,12 +521,12 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
   int stackSize = INT_MAX;
   while (stackSize != m_syncStack.size()) {
       stackSize = m_syncStack.size();
-      std::cout << "- SyncStack size " << m_syncStack.size() << std::endl;
+      NDN_LOG_INFO("[LedgerImpl::onFetchedRecord] SyncStack size " << m_syncStack.size());
       for (auto it = m_syncStack.begin(); it != m_syncStack.end();) {
           if (checkRecordAncestor(it->first)) {
               it = m_syncStack.erase(it);
           } else if(time::abs(time::system_clock::now() - it->second) > m_config.ancestorFetchTimeout){
-              std::cout << "-- Timeout on fetching ancestor for " << it->first.getRecordName().toUri() << std::endl;
+              NDN_LOG_WARN("[LedgerImpl::onFetchedRecord] Timeout on fetching ancestor for " << it->first.getRecordName().toUri());
               it = m_syncStack.erase(it);
           } else {
               // else, some preceding records are not yet fetched
@@ -569,12 +561,11 @@ LedgerImpl::checkRecordAncestor(const Record &record) {
         }
     }
     if (!badRecord && readyToAdd) {
-        std::cout << "- Good record. Will add record in to the ledger" << std::endl;
         addToTailingRecord(record, checkEndorseValidityOfRecord(*(record.m_data)));
         return true;
     }
     if (badRecord) {
-        std::cout << "- Bad record. Will remove it and all its later records" << std::endl;
+        NDN_LOG_TRACE("[LedgerImpl::checkRecordAncestor] Bad record: " << record.getRecordName());
         m_badRecords.insert(record.getRecordName());
         return true;
     }
@@ -584,12 +575,12 @@ LedgerImpl::checkRecordAncestor(const Record &record) {
 void
 LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
     if (m_tailRecords.count(record.getRecordName()) != 0) {
-        std::cout << "[LedgerImpl::addToTailingRecord] Repeated add record: " << record.getRecordName()
-                  << std::endl;
+        NDN_LOG_INFO("[LedgerImpl::addToTailingRecord] Repeated add record: " << record.getRecordName());
         return;
     }
+    NDN_LOG_TRACE("[LedgerImpl::addToTailingRecord] adding record" << record.getRecordName());
 
-    //verify if ancestor has correct reference policy
+  //verify if ancestor has correct reference policy
     bool refVerified = endorseVerified;
     if (endorseVerified) {
         for (const auto &precedingRecord : record.getPointersFromHeader()) {
@@ -625,7 +616,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
                 m_tailRecords[precedingRecord].refSet.insert(record.getProducerPrefix()).second) {
                 stack.push(precedingRecord);
                 updatedRecords.insert(precedingRecord);
-                std::cout << record.getProducerPrefix() << " confirms " << precedingRecord.toUri() << std::endl;
+                NDN_LOG_TRACE("[LedgerImpl::addToTailingRecord]" << record.getProducerPrefix() << " confirms " << precedingRecord.toUri());
             }
         }
     }
@@ -636,7 +627,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
     for (const auto & updatedRecord : updatedRecords) {
         auto& tailingState = m_tailRecords[updatedRecord];
         if (tailingState.refSet.size() == m_config.confirmWeight) {
-            std::cout << updatedRecord.toUri()  << " is confirmed" << std::endl;
+            NDN_LOG_INFO("[LedgerImpl::addToTailingRecord]" << updatedRecord.toUri()  << " is confirmed");
             if (!tailingState.referenceVerified) {
                 tailingState.referenceVerified = true;
                 referenceNeedUpdate = true;
@@ -678,7 +669,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
 
 void
 LedgerImpl::onRecordConfirmed(const Record &record){
-    std::cout << "- [LedgerImpl::onRecordConfirmed] accept record" << std::endl;
+    NDN_LOG_INFO("[LedgerImpl::onRecordConfirmed] accept record" << record.getRecordName());
 
     //register current time
     if (m_rateCheck[record.getProducerPrefix()] < record.getGenerationTimestamp())
@@ -695,7 +686,7 @@ LedgerImpl::onRecordConfirmed(const Record &record){
                 m_lastCertRecords.remove(c);
             }
         } catch (const std::exception &e) {
-            std::cout << "-- Bad certificate record format. " << std::endl;
+            NDN_LOG_ERROR("[LedgerImpl::onRecordConfirmed] Bad certificate record format for " << record.getRecordName());
             return;
         }
     }
@@ -724,7 +715,7 @@ LedgerImpl::removeTimeoutRecords()
   while (!timeoutList.empty()) {
     for (const auto& i : timeoutList) {
       m_tailRecords.erase(i);
-      std::cout << "[LedgerImpl::removeTimeoutRecords] remove timeout record " << i << std::endl;
+      NDN_LOG_INFO("[LedgerImpl::removeTimeoutRecords] remove timeout record " << i);
     }
     std::set<Name> childrenList;
     for (const auto& record : m_tailRecords) {
