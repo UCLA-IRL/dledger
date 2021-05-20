@@ -671,6 +671,8 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
         }
     }
 
+    removeTimeoutRecords();
+
     dumpList(m_tailRecords);
 }
 
@@ -705,6 +707,35 @@ LedgerImpl::onRecordConfirmed(const Record &record){
     if (m_onRecordAppConfirmed != nullptr) {
         m_onRecordAppConfirmed(record);
     }
+}
+
+void
+LedgerImpl::removeTimeoutRecords()
+{
+  std::set<Name> timeoutList;
+  auto timeBefore = time::system_clock::now() - m_config.blockConfirmationTimeout;
+  for (const auto& record : m_tailRecords) {
+    if (record.second.refSet.size() < m_config.confirmWeight && //unconfirmed
+        record.second.addedTime < timeBefore) {
+      timeoutList.insert(record.first);
+    }
+  }
+
+  while (!timeoutList.empty()) {
+    for (const auto& i : timeoutList) {
+      m_tailRecords.erase(i);
+      std::cout << "[LedgerImpl::removeTimeoutRecords] remove timeout record" << i << std::endl;
+    }
+    std::set<Name> childrenList;
+    for (const auto& record : m_tailRecords) {
+      for (const auto& parent : record.second.record.getPointersFromHeader()) {
+        if (timeoutList.count(parent)) { // if parent in the set
+          childrenList.insert(record.first); //child should be removed
+        }
+      }
+    }
+    timeoutList.swap(childrenList);
+  }
 }
 
 std::unique_ptr<Ledger>

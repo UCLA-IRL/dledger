@@ -61,12 +61,6 @@ private:
   bool
   checkEndorseValidityOfRecord(const Data& data);
 
-  // Interest format: each <> is only one name component
-  // /<multicast_prefix>/NOTIF/<Full Name of Record>
-  // Signature of the producer
-  void
-  onNewRecordNotification(const Interest& interest);
-
   // Interest format:
   // /<multicast_prefix>/SYNC
   // Parameters: A list of tailing record names
@@ -112,6 +106,11 @@ private:
    * handles the information when a record is accepted.
    */
   void onRecordConfirmed(const Record &record);
+
+  /**
+   * handles removal of timeout records
+   */
+  void removeTimeoutRecords();
 
 private:
   Config m_config;
