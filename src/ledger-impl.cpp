@@ -636,7 +636,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
     for (const auto & updatedRecord : updatedRecords) {
         auto& tailingState = m_tailRecords[updatedRecord];
         if (tailingState.refSet.size() == m_config.confirmWeight) {
-            std::cout << updatedRecord.toUri()  << "is confirmed" << std::endl;
+            std::cout << updatedRecord.toUri()  << " is confirmed" << std::endl;
             if (!tailingState.referenceVerified) {
                 tailingState.referenceVerified = true;
                 referenceNeedUpdate = true;
@@ -724,7 +724,7 @@ LedgerImpl::removeTimeoutRecords()
   while (!timeoutList.empty()) {
     for (const auto& i : timeoutList) {
       m_tailRecords.erase(i);
-      std::cout << "[LedgerImpl::removeTimeoutRecords] remove timeout record" << i << std::endl;
+      std::cout << "[LedgerImpl::removeTimeoutRecords] remove timeout record " << i << std::endl;
     }
     std::set<Name> childrenList;
     for (const auto& record : m_tailRecords) {
