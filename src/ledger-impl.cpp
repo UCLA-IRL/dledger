@@ -95,9 +95,6 @@ LedgerImpl::createRecord(Record& record)
   if (!m_config.certificateManager->authorizedToGenerate()) {
       return ReturnCode::signingError("No Valid Certificate");
   }
-  if (time::system_clock::now() - m_rateCheck[readString(m_config.peerPrefix.get(-1))] < m_config.recordProductionRateLimit) {
-      return ReturnCode::timingError("record generation too fast");
-  }
 
   if (record.getType() == CERTIFICATE_RECORD) {
       for (const auto& certName: m_lastCertRecords) {
@@ -289,14 +286,6 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
     if (tp > time::system_clock::now() + m_config.clockSkewTolerance) {
         NDN_LOG_ERROR("[LedgerImpl::checkSyntaxValidityOfRecord] record from too far in the future" << dataRecord.getRecordName());
         return false;
-    }
-    if (m_rateCheck.find(producerID) == m_rateCheck.end()) {
-        m_rateCheck[producerID] = tp;
-    } else {
-        if ((time::abs(tp - m_rateCheck.at(producerID)) < m_config.recordProductionRateLimit)) {
-            NDN_LOG_ERROR("[LedgerImpl::checkSyntaxValidityOfRecord] record generation too fast from the peer" << dataRecord.getRecordName());
-            return false;
-        }
     }
 
     NDN_LOG_TRACE("- Step 4: Check InterLock Policy");
@@ -679,10 +668,6 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
 void
 LedgerImpl::onRecordConfirmed(const Record &record){
     NDN_LOG_INFO("[LedgerImpl::onRecordConfirmed] accept record" << record.getRecordName());
-
-    //register current time
-    if (m_rateCheck[record.getProducerPrefix()] < record.getGenerationTimestamp())
-            m_rateCheck[record.getProducerPrefix()] = record.getGenerationTimestamp();
 
     //add to backend database
     m_backend.putRecord(record.m_data);

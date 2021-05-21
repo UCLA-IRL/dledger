@@ -47,11 +47,6 @@ public:
   size_t numGenesisBlock = 10;
 
   /**
-   * The maximum record production rate.
-   */
-  time::milliseconds recordProductionRateLimit = time::milliseconds(1000);
-
-  /**
    * the maximum interval between two sync interests.
    */
   time::milliseconds syncInterval = time::milliseconds(5000);

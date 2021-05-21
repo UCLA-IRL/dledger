@@ -121,8 +121,6 @@ private:
 
   std::map<Name, TailingRecordState> m_tailRecords;
 
-  std::map<Name, time::system_clock::TimePoint> m_rateCheck; // producer to time
-
   // Zhiyi's temp member variable
   std::list<std::pair<Record, time::system_clock::TimePoint>> m_syncStack;
 
