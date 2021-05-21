@@ -340,13 +340,15 @@ LedgerImpl::checkEndorseValidityOfRecord(const Data& data) {
         return false;
     }
 
+    bool contributionPassed = true;
     NDN_LOG_TRACE("- Step 7: Check Contribution Policy");
     for (const auto& precedingRecordName : dataRecord.getPointersFromHeader()) {
         if (m_tailRecords.count(precedingRecordName) != 0) {
             NDN_LOG_TRACE("-- Preceding record " << precedingRecordName << " has weight " << m_tailRecords[precedingRecordName].refSet.size());
             if (m_tailRecords[precedingRecordName].refSet.size() > m_config.contributionWeight) {
                 NDN_LOG_WARN("[LedgerImpl::checkEndorseValidityOfRecord] Weight too high for " << dataRecord.getRecordName() << " with weight " << m_tailRecords[precedingRecordName].refSet.size());
-                return false;
+                contributionPassed = false;
+                break;
             }
         } else {
             if (m_backend.getRecord(precedingRecordName) != nullptr) {
@@ -354,9 +356,16 @@ LedgerImpl::checkEndorseValidityOfRecord(const Data& data) {
             } else {
                 NDN_LOG_WARN("[LedgerImpl::checkEndorseValidityOfRecord] Preceding record " << precedingRecordName << " Not found");
             }
-            return false;
+            contributionPassed = false;
+            break;
         }
     }
+
+    if (!contributionPassed && (!m_onLazyRecordCheck || !m_onLazyRecordCheck(data))) {
+      NDN_LOG_WARN("[LedgerImpl::checkEndorseValidityOfRecord] Record failed custom lazy check" << dataRecord.getRecordName());
+      return false;
+    }
+
 
     NDN_LOG_TRACE("- Step 8: Check App Logic");
     if (m_onRecordAppCheck != nullptr && !m_onRecordAppCheck(data)) {
