@@ -1,8 +1,8 @@
-# DLedger Spec
+# DLedger current spec, unsolved issues
 
-Authors
-* Zhiyi Zhang
-* Add here your name
+* Zhiyi Zhang (zhiyi@cs.ucla.edu)
+
+# Current Spec
 
 ## Phases
 
@@ -86,3 +86,5 @@ Infrastructure-less Mode:
 * When online, find `num_neighbor` online neighbors by contacting the NDS and create NDN Faces to these neighbors.
 * Listen to the sync request prefix `/example/DLR/SYNC` from the network.
 * Send triggered (i.e., after generating new records, after receiving outdated DAG view) and periodic (i.e., periodic) sync requests to all neighbors.
+
+# Unsolved Issues
