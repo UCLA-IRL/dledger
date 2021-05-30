@@ -139,10 +139,14 @@ If the record cannot be confirmed after a pre-defined time `T_max_confirm`, the 
 
 ## 1. Use cases
 
-Applications that do not require strong consistency.
+Applications where all records are supposed to be added and confirmed (i.e., k = 1)
 * Logging of collaborative editing and coding
 * Logging of certificate issuance/revocation/renewal
+    * This application do not even have multiple parties
 * Logging of solar energy consumption/production
+
+Applications where k>1 for consensus.
+* We don't really have one. But the coin application used by hyperledger can be one?
 
 ## 2. Clear understanding of the properties of our system
 
