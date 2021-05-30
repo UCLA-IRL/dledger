@@ -66,15 +66,6 @@ public:
   }
 
   /**
-   * Set additional checking rules when the new record failed contribution policy
-   * @p onRecordAppCheck, input, a callback function invoked whenever there is a new record received from the Internet.
-   */
-  virtual void
-  setOnLazyRecordCheck(const OnRecordAppCheck& onLazyRecordCheck) {
-    m_onLazyRecordCheck = onLazyRecordCheck;
-  }
-
-  /**
     * Set additional action when a new record is accepted.
     * @p onRecordAppCheck, input, a callback function invoked whenever there is a new record is accepted.
     */
@@ -86,7 +77,6 @@ public:
 protected:
   OnRecordAppCheck m_onRecordAppCheck;
   OnRecordAppConfirmed m_onRecordAppConfirmed;
-  OnRecordAppCheck m_onLazyRecordCheck;
 };
 
 } // namespace dledger
