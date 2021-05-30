@@ -154,7 +154,7 @@ It the record fail this policy, the verify peer should choose other record to re
 
 The specific policies are:
 - Further Signature Validity Check. The record's certificate is not revoked by a confirmed revocation record yet.
-- Reputation. If the record' peers must have a reputation above a threshold describe in 3.1.
+- Contribution policies. Each preceding record of The record being verified must have a weight lower than a threshold. 
 - Preceding record Validity. The preceding records must be also valid for endorsement. 
 
 ### Custom policies
