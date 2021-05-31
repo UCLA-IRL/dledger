@@ -153,7 +153,7 @@ This policy is checked when the peers tries to endorse the record by sending a r
 It the record fail this policy, the verify peer should choose other record to refer to.
 
 The specific policies are:
-- Further Signature Validity Check. The record's certificate is not revoked by a confirmed revocation record yet.
+- Revocation Check. The record's certificate is not revoked by a confirmed revocation record yet.
 - Contribution policies. Each preceding record of The record being verified must have a weight lower than a threshold. 
 - Preceding record Validity. The preceding records must be also valid for endorsement. 
 
