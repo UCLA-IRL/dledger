@@ -307,6 +307,12 @@ LedgerImpl::checkSyntaxValidityOfRecord(const Data& data) {
       NDN_LOG_TRACE("-- Not a certificate/revocation record");
     }
 
+    NDN_LOG_TRACE("- Step 6: Check App Retrieval Check");
+    if (m_onRecordAppRetrievalCheck && !m_onRecordAppRetrievalCheck(data)) {
+      NDN_LOG_ERROR("[LedgerImpl::checkSyntaxValidityOfRecord] app retrieval check result: " << dataRecord.getRecordName());
+      return false;
+    }
+
     NDN_LOG_INFO("- All Syntax check Steps finished. Good Record");
     return true;
 }
@@ -348,7 +354,7 @@ LedgerImpl::checkEndorseValidityOfRecord(const Data& data) {
     }
 
     NDN_LOG_TRACE("- Step 8: Check App Logic");
-    if (m_onRecordAppCheck != nullptr && !m_onRecordAppCheck(data)) {
+    if (m_onRecordAppEndorseCheck && !m_onRecordAppEndorseCheck(data)) {
         NDN_LOG_ERROR("-- App Logic check failed");
         return false;
     }
