@@ -448,10 +448,6 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
     NDN_LOG_INFO("[LedgerImpl::onFetchedRecord] Record already exists in the ledger. Ignore " << data.getFullName());
     return;
   }
-  if (m_badRecords.count(data.getFullName()) != 0) {
-      NDN_LOG_INFO("[LedgerImpl::onFetchedRecord] Known bad record. Ignore " << data.getFullName());
-      return;
-  }
   for (const auto& stackRecord : m_syncStack) {
       if (stackRecord.first.getRecordName() == data.getFullName()) {
           NDN_LOG_INFO("[LedgerImpl::onFetchedRecord] Record in sync stack already. Ignore " << data.getFullName());
@@ -503,7 +499,6 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
 
   } catch (const std::exception& e) {
       NDN_LOG_ERROR("- The Data format of " << data.getFullName() << " is not proper for DLedger record because " << e.what());
-      m_badRecords.insert(data.getFullName());
       return;
   }
 
@@ -528,14 +523,7 @@ LedgerImpl::onFetchedRecord(const Interest& interest, const Data& data)
 bool
 LedgerImpl::checkRecordAncestor(const Record &record) {
     bool readyToAdd = true;
-    bool badRecord = false;
     for (const auto& precedingRecordName : record.getPointersFromHeader()) {
-        if (m_badRecords.count(precedingRecordName) != 0) {
-            // has preceding record being bad record
-            badRecord = true;
-            readyToAdd = false;
-            break;
-        }
         if (!hasRecord(precedingRecordName.toUri())) {
             readyToAdd = false;
             break;
@@ -549,13 +537,8 @@ LedgerImpl::checkRecordAncestor(const Record &record) {
             }
         }
     }
-    if (!badRecord && readyToAdd) {
+    if (readyToAdd) {
         addToTailingRecord(record, checkEndorseValidityOfRecord(*(record.m_data)));
-        return true;
-    }
-    if (badRecord) {
-        NDN_LOG_TRACE("[LedgerImpl::checkRecordAncestor] Bad record: " << record.getRecordName());
-        m_badRecords.insert(record.getRecordName());
         return true;
     }
     return false;

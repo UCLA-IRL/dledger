@@ -125,7 +125,6 @@ private:
   std::list<std::pair<Record, time::system_clock::TimePoint>> m_syncStack;
 
   // Siqi's temp member variable
-  std::set<Name> m_badRecords;
   scheduler::EventId m_syncEventID;
   scheduler::EventId m_replySyncEventID;
   std::mt19937_64 m_randomEngine{std::random_device{}()};
