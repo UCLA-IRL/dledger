@@ -26,7 +26,7 @@ LedgerImpl::dumpList(const std::map<Name, TailingRecordState>& weight)
 {
     NDN_LOG_TRACE("Dump " << weight.size() << " Tailing Records");
   for (const auto& item : weight) {
-    NDN_LOG_TRACE((item.second.referenceVerified ? "OK " : "NO ") << item.second.refSet.size() << "\t" << item.first.toUri());
+    NDN_LOG_TRACE((item.second.parentEndorseVerified ? "OK " : "NO ") << item.second.refSet.size() << "\t" << item.first.toUri());
   }
 }
 
@@ -107,7 +107,7 @@ LedgerImpl::createRecord(Record& record)
   for (const auto &item : m_tailRecords) {
     if (item.second.refSet.size() <= m_config.appendWeight &&
         !m_config.peerPrefix.isPrefixOf(item.first) &&
-        item.second.referenceVerified) {
+        item.second.parentEndorseVerified) {
       recordList.emplace_back(item.first, item.second.refSet.size());
     }
   }
@@ -166,7 +166,7 @@ bool
 LedgerImpl::hasRecord(const std::string& recordName) const
 {
   if (m_tailRecords.count(recordName)) {
-    if (!m_tailRecords.find(recordName)->second.referenceVerified) {
+    if (!m_tailRecords.find(recordName)->second.parentEndorseVerified) {
       return false;
     }
     return true;
@@ -179,7 +179,7 @@ std::list<Name>
 LedgerImpl::listRecord(const std::string& prefix) const
 {
     auto list = m_backend.listRecord(Name(prefix));
-    list.remove_if([&](const auto& name) {return m_tailRecords.count(name) && !m_tailRecords.find(name)->second.referenceVerified;});
+    list.remove_if([&](const auto& name) {return m_tailRecords.count(name) && !m_tailRecords.find(name)->second.parentEndorseVerified;});
     return list;
 }
 
@@ -187,7 +187,7 @@ optional<Record>
 LedgerImpl::getRecord(const Name& rName) const
 {
   if (m_tailRecords.count(rName)) {
-    if (!m_tailRecords.find(rName)->second.referenceVerified) {
+    if (!m_tailRecords.find(rName)->second.parentEndorseVerified) {
       return nullopt;
     }
     return m_tailRecords.find(rName)->second.record;
@@ -237,7 +237,7 @@ LedgerImpl::sendSyncInterest() {
         appParam.push_back(KeyLocator(certName).wireEncode());
     }
     for (const auto &item : m_tailRecords) {
-        if (item.second.referenceVerified && item.second.refSet.empty())
+        if (item.second.parentEndorseVerified && item.second.refSet.empty())
             appParam.push_back(item.first.wireEncode());
     }
     appParam.parse();
@@ -557,7 +557,7 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
     if (endorseVerified) {
         for (const auto &precedingRecord : record.getPointersFromHeader()) {
             if (m_tailRecords.count(precedingRecord) != 0 &&
-                !m_tailRecords[precedingRecord].referenceVerified) {
+                !m_tailRecords[precedingRecord].parentEndorseVerified) {
                 refVerified = false;
                 break;
             }
@@ -600,8 +600,8 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
         auto& tailingState = m_tailRecords[updatedRecord];
         if (tailingState.refSet.size() == m_config.confirmWeight) {
             NDN_LOG_INFO("[LedgerImpl::addToTailingRecord]" << updatedRecord.toUri()  << " is confirmed");
-            if (!tailingState.referenceVerified) {
-                tailingState.referenceVerified = true;
+            if (!tailingState.parentEndorseVerified) {
+                tailingState.parentEndorseVerified = true;
                 referenceNeedUpdate = true;
             }
             onRecordConfirmed(*getRecord(updatedRecord));
@@ -615,19 +615,19 @@ LedgerImpl::addToTailingRecord(const Record& record, bool endorseVerified) {
     while (referenceNeedUpdate) {
         referenceNeedUpdate = false;
         for (auto &r : m_tailRecords) {
-            if (!r.second.referenceVerified && r.second.endorseVerified) {
+            if (!r.second.parentEndorseVerified && r.second.recordEndorseVerified) {
                 bool referenceVerified = true;
                 Record currentRecord(*getRecord(r.first));
                 for (const auto &precedingRecord : currentRecord.getPointersFromHeader()) {
                     if ((m_tailRecords.count(precedingRecord) &&
                             m_tailRecords[precedingRecord].refSet.size() < m_config.confirmWeight) &&
-                        !m_tailRecords[precedingRecord].referenceVerified) {
+                        !m_tailRecords[precedingRecord].parentEndorseVerified) {
                         referenceVerified = false;
                     }
                 }
 
                 if (referenceVerified) {
-                    r.second.referenceVerified = referenceVerified;
+                    r.second.parentEndorseVerified = referenceVerified;
                     referenceNeedUpdate = true;
                 }
             }

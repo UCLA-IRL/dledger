@@ -87,9 +87,9 @@ private:
 
   //Siqi's temp function
   struct TailingRecordState{
-      bool referenceVerified;
+      bool parentEndorseVerified;
       std::set<Name> refSet;
-      bool endorseVerified;
+      bool recordEndorseVerified;
       Record record;
       time::system_clock::TimePoint addedTime;
   };
