@@ -61,8 +61,17 @@ public:
    * @p onRecordAppCheck, input, a callback function invoked whenever there is a new record received from the Internet.
    */
   virtual void
-  setOnRecordAppCheck(const OnRecordAppCheck& onRecordAppCheck) {
-      m_onRecordAppCheck = onRecordAppCheck;
+  setOnRecordAppRetrievalCheck(const OnRecordAppCheck& onRecordAppRetrievalCheck) {
+    m_onRecordAppRetrievalCheck = onRecordAppRetrievalCheck;
+  }
+
+  /**
+   * Set additional checking rules before endorsing a new record.
+   * @p onRecordAppCheck, input, a callback function invoked whenever there is a new record is endorsed by this peer.
+   */
+  virtual void
+  setOnRecordAppEndorseCheck(const OnRecordAppCheck& onRecordAppEndorseCheck) {
+      m_onRecordAppEndorseCheck = onRecordAppEndorseCheck;
   }
 
   /**
@@ -75,7 +84,8 @@ public:
   }
 
 protected:
-  OnRecordAppCheck m_onRecordAppCheck;
+  OnRecordAppCheck m_onRecordAppRetrievalCheck;
+  OnRecordAppCheck m_onRecordAppEndorseCheck;
   OnRecordAppConfirmed m_onRecordAppConfirmed;
 };
 
