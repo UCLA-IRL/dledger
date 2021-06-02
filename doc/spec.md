@@ -8,14 +8,9 @@
 
 Parties:
 * peer: an entity with a public/private key pair whose public key can be validated by other peer members and whose private key can be used to sign a record into the DLedger.
-* organization: a group of peers belong to an organization. In a simple DLedger system, all peers can belong to the same orginzation.
-* identity mananger: each orgnization has a identity manager which will issue public key certificates to entities, making them new peers in the system. They are also responsible for renewing/revoking peer's certificates.
 
 Naming conventions for this spec (Real names can be totally different).
-* peers hold the name `/<system-prefix>/<organization-ID>*/<peer-ID>`, e.g., `/example/orgA/alice`.
-* identity managers hold the name `/<system-prefix>/<organization-ID>*`, e.g., `/example/orgA`.
-
-**Note**: When there is only one organization in the system, the organization ID is not needed because it can be considered as part of the system prefix.
+* peers hold the name `/<system-prefix>/<peer-ID>`, e.g., `/example/dledger/orgA/alice`.
 
 Global variables:
 * `N`, Total number of peers in a DLedger system
@@ -33,7 +28,7 @@ Specifically, each node perform the following operations.
 Infrastructure Mode:
 (assumed routing protocol or self-learning protocol is running in the infrastructure)
 * Connects to the NDN overlay network (e.g., NDN testbed) with NDN Find Nearest Neighbor (FCH) services.
-* Register the prefix `/<system-prefix>/<organization-ID>/<peer-ID>` and prefix `/<system-prefix>/SYNC` to the network.
+* Register the prefix `/<system-prefix>/<peer-ID>` and prefix `/<system-prefix>/SYNC` to the network.
 * Set the `/<system-prefix>/SYNC` to be a multicast prefix.
 * Listen to the sync request multicast prefix `/<system-prefix>/SYNC`.
 
@@ -71,7 +66,29 @@ These misbavior includes
 * Attaching new records to already confirmed records
 * Appending records that turned out to be invalid, i.e., not eventually confirmed by the system
 
-### 3.3 Consensus Layer: k out of N consensus
+### 3.3 Authentication Layer:
+Each record that is authenticated according to a trust schema. 
+Each peer is loaded with the specific trust model, policies and anchors for the ledger during bootstrapping in order to authenticate record. 
+In order to maintain changes to the certificate storage, the new information and be added or removed with certificate and revocation records.
+These changes will be effective after the record is confirmed. 
+
+DLedger supports a modular design for the trust anchor. The trust manager can be replaced according to the model. 
+
+For Convenience, we discuss an example of the trust model with multiple organization:
+
+There are multiple organization maintaining the ledger collectively. Each organization has its own trust anchor, 
+and the corresponding identity management peer. 
+Some Terminology:
+* peer: A recording generating peer as above. To be a legitimate peer, it belongs to an organization and is authenticated by it. 
+* organization: a group of peers belong to an organization. In a simple DLedger system, all peers can belong to the same orginzation.
+* identity mananger: each orgnization has a identity manager which will issue public key certificates to entities, making them new peers in the system. They are also responsible for renewing/revoking peer's certificates.
+
+Naming conventions for this spec (Real names can be totally different).
+* peers hold the name `/<system-prefix>/<peer-ID>`, e.g., `/example/orgA/alice`.
+* identity managers hold the name `/<system-prefix>/<organization-ID>*`, e.g., `/example/orgA`.
+**Note**: When there is only one organization in the system, the organization ID is not needed because it can be considered as part of the system prefix.
+
+### 3.4 Consensus Layer: k out of N consensus
 
 However, in other application scenarios like crypto currency, the consensus requires a confirmation process.
 DLedger allows applications to set a (k, N) scheme where n is the total number of peers and k is the number of peers required to confirm a record.
