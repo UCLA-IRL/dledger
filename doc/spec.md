@@ -88,6 +88,8 @@ Naming conventions for this spec (Real names can be totally different).
 * identity managers hold the name `/<system-prefix>/<organization-ID>*`, e.g., `/example/orgA`.
 **Note**: When there is only one organization in the system, the organization ID is not needed because it can be considered as part of the system prefix.
 
+In this model, all the certificate related record are only accepted if they are from a identity manager. 
+
 ### 3.4 Consensus Layer: k out of N consensus
 
 However, in other application scenarios like crypto currency, the consensus requires a confirmation process.
@@ -101,7 +103,7 @@ The process can be described in following steps:
 In certain application scenarios where all well-formed records are legitimate, consensus is automatically achieved if the records are linked by any later records. Namely, k = 1 for (k, N).
 For example, in a collaborative editing application, if a commit is linked by later records, it means the change is merged. Otherwise, if the record is never linked by later records, the change is discard.
 
-### 3.4 Record Layer
+### 3.5 Record Layer
 
 Record Types: 
 * Application data record (carrying application data like logs)
