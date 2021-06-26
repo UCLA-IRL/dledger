@@ -54,7 +54,7 @@ many legitimate records as possible under dynamic network condition.
 
 All of our basic analysis of the model should be based on this use case. 
 
-### Harder use case
+### Certificate Management (Basic Relationship between Pointers)
 A more advanced use case is a certificate management logger. 
 In this case, each revocation of the certificate should be tracked to the 
 generation record, since that is where the record is introduced. 
@@ -63,7 +63,7 @@ Therefore, this logger will have an additional layer of pointers.
 
 The built-in certificate management system also uses this design. 
 
-### Collective Editing?
+### Collective Editing
 
 DLedger may not fit in collective editing case easily, since
 - Edit frequency are unpredictable. 
