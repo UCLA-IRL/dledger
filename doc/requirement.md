@@ -52,6 +52,8 @@ However, a compromised node may send false event reports or flood the system.
 Therefore, we use DLedger to ensure the correctness of the system while keeping as 
 many legitimate records as possible under dynamic network condition. 
 
+All of our basic analysis of the model should be based on this use case. 
+
 ### Harder use case
 A more advanced use case is a certificate management logger. 
 In this case, each revocation of the certificate should be tracked to the 
