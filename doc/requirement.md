@@ -19,10 +19,12 @@ It has the following properties:
 - Immutability. All records cannot be modified once accepted, 
   without knowing all keys of the accepting peers. This also means that the system is append-only. 
 - Partition Tolerance. Under a network partition, the records are still able to be 
-accepted as long as there are sufficient peers for acceptance.
+accepted as long as there are sufficient peers for acceptance (k peers).
 - Correctness. Records are checked before accepted into the logs. 
 - Eventual Consistency. All records will be eventally replicated to all peers if no new records are added.
 - Flooding Prevention. The nodes are not able to flood the logger and cause other node to fail.
+- Basically Available. The nodes are able to read records even under partitions. 
+  (May not be the newest record, and the node may not commit without k peers to accept)
 
 ## Why not just build on top of sync protocol?
 
