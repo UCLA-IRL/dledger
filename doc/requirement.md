@@ -42,6 +42,7 @@ Then, we check this solution against the above properties:
 - Correctness. Partially, since each receiver can check for itself only. 
 - Eventual Consistency. Yes. 
 - Flooding Prevention. No, the producer can generate as many as it wants. 
+- Basic Availability. Yes. 
 
 ## Use case
 
