@@ -19,7 +19,7 @@ It has the following properties:
 - Immutability. All records cannot be modified once accepted, 
   without knowing all keys of the accepting peers. This also means that the system is append-only. 
 - Partition Tolerance. Under a network partition, the records are still able to be 
-accepted as long as there are sufficient peers for acceptance (k peers).
+accepted as long as there are sufficient peers for acceptance (k peers besides sender).
 - Correctness. Records are checked before accepted into the logs. 
 - Eventual Consistency. All records will be eventally replicated to all peers if no new records are added.
 - Flooding Prevention. The nodes are not able to flood the logger and cause other node to fail.
