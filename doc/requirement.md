@@ -11,10 +11,10 @@ DLedger is built on a system with the following assumption:
 
 ## Properties
 
-DLedger is a secure distributed logging system. 
+DLedger is a secured distributed logging system. 
 It has the following properties:
-- Persistence. The records accepted by the system are replicated at least m peers so they cannot collude.
-- Permission. All log entries and the corresponding data are signed,
+- Persistence. The records accepted by the system are replicated at least m peers, so they cannot collude.
+- Permission. All log entries, and the corresponding data are signed,
   and therefore able to be tracked to the original sender.
 - Immutability. All records cannot be modified once accepted, 
   without knowing all keys of the accepting peers. This also means that the system is append-only. 
