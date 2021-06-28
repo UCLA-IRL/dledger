@@ -3,6 +3,7 @@
 ## Assumption
 DLedger is built on a system with the following assumption:
 - Nodes are authenticated. The identity of each node can be verified using certificate chain.
+- Nodes are writing records at an approximately same rate (A poisson distribution). 
 - Network Partition may occur. The network may partition that causes a two generals problem. 
 - Up to k out of n nodes may be compromised. This may cause byzantine generals problem. The compromised node may attempt to 
   1. Insert illegitimate records. 
